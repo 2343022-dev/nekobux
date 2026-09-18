@@ -1,5 +1,6 @@
 export type PurchaseStatus = "pending" | "available" | "locked" | "paid" | "rejected";
 export type ClaimStatus = "open" | "verified" | "rejected" | "paid";
+export type PurchaseItemType = "asset" | "bundle";
 
 export interface RobloxUser {
   id: number;
@@ -15,6 +16,7 @@ export interface PurchaseInput {
   robloxUsername: string;
   assetId: number;
   assetName: string;
+  itemType: PurchaseItemType;
   priceRobux: number;
   purchasedAt: Date;
 }

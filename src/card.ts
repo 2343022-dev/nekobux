@@ -28,12 +28,12 @@ export async function renderPurchaseCard(input: {
   link: RobloxLink | null;
   balance: BalanceSummary;
   avatarUrl: string | null;
-  assetUrl: string | null;
+  itemUrl: string | null;
 }): Promise<Buffer> {
   const { purchase, link, balance } = input;
-  const [avatar, asset] = await Promise.all([
+  const [avatar, item] = await Promise.all([
     imageDataUri(input.avatarUrl),
-    imageDataUri(input.assetUrl)
+    imageDataUri(input.itemUrl)
   ]);
   const buyer = link?.robloxDisplayName || purchase.robloxUsername;
   const date = new Intl.DateTimeFormat("id-ID", {
@@ -64,14 +64,14 @@ export async function renderPurchaseCard(input: {
       <clipPath id="assetClip"><rect x="55" y="128" width="410" height="465" rx="24"/></clipPath>
       <clipPath id="avatarClip"><circle cx="1094" cy="142" r="46"/></clipPath>
     </defs>
-    <g clip-path="url(#assetClip)">${imageOrPlaceholder(asset, 55, 128, 410, 465)}</g>
+    <g clip-path="url(#assetClip)">${imageOrPlaceholder(item, 55, 128, 410, 465)}</g>
     <rect x="55" y="128" width="410" height="465" rx="24" fill="none" stroke="#bca99e" stroke-width="3"/>
     <rect x="78" y="151" width="112" height="37" rx="10" fill="#6d9a80"/>
-    <text x="134" y="176" text-anchor="middle" style="font:700 16px Arial;fill:#fff">CATALOG</text>
+    <text x="134" y="176" text-anchor="middle" style="font:700 16px Arial;fill:#fff">${purchase.itemType === "bundle" ? "BUNDLE" : "CATALOG"}</text>
 
     <text x="505" y="142" class="title">${escapeXml(truncate(purchase.assetName, 35))}</text>
     <text x="505" y="177" class="muted">Pembeli: <tspan font-weight="700">${escapeXml(truncate(buyer, 22))} (@${escapeXml(truncate(purchase.robloxUsername, 22))})</tspan></text>
-    <text x="505" y="207" class="muted">Roblox ID: ${purchase.robloxUserId} • Item ID: ${purchase.assetId}</text>
+    <text x="505" y="207" class="muted">Roblox ID: ${purchase.robloxUserId} • ${purchase.itemType === "bundle" ? "Bundle" : "Item"} ID: ${purchase.assetId}</text>
     <g clip-path="url(#avatarClip)">${imageOrPlaceholder(avatar, 1048, 96, 92, 92)}</g>
     <circle cx="1094" cy="142" r="46" fill="none" stroke="#c66f72" stroke-width="4"/>
 

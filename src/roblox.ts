@@ -59,3 +59,16 @@ export async function getAssetThumbnail(assetId: number): Promise<string | null>
     `https://thumbnails.roblox.com/v1/assets?assetIds=${assetId}&size=420x420&format=Png&isCircular=false`
   );
 }
+
+export async function getBundleThumbnail(bundleId: number): Promise<string | null> {
+  return getThumbnail(
+    `https://thumbnails.roblox.com/v1/bundles/thumbnails?bundleIds=${bundleId}&size=420x420&format=Png&isCircular=false`
+  );
+}
+
+export async function getItemThumbnail(
+  itemId: number,
+  itemType: "asset" | "bundle"
+): Promise<string | null> {
+  return itemType === "bundle" ? getBundleThumbnail(itemId) : getAssetThumbnail(itemId);
+}

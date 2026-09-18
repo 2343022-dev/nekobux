@@ -14,7 +14,7 @@ import {
   refreshEligibilityForUser,
   savePurchaseMessage
 } from "./db.js";
-import { getAssetThumbnail, getAvatarThumbnail } from "./roblox.js";
+import { getAvatarThumbnail, getItemThumbnail } from "./roblox.js";
 import type { PurchaseInput, PurchaseRecord } from "./types.js";
 import { errorMessage } from "./utils.js";
 
@@ -49,11 +49,11 @@ async function publishPurchase(client: Client, purchase: PurchaseRecord): Promis
 
   const link = await getLinkByRoblox(purchase.robloxUserId);
   const balance = await getBalance(purchase.robloxUserId);
-  const [avatarUrl, assetUrl] = await Promise.all([
+  const [avatarUrl, itemUrl] = await Promise.all([
     getAvatarThumbnail(purchase.robloxUserId).catch(() => null),
-    getAssetThumbnail(purchase.assetId).catch(() => null)
+    getItemThumbnail(purchase.assetId, purchase.itemType).catch(() => null)
   ]);
-  const card = await renderPurchaseCard({ purchase, link, balance, avatarUrl, assetUrl });
+  const card = await renderPurchaseCard({ purchase, link, balance, avatarUrl, itemUrl });
   const mention = link ? `<@${link.discordUserId}>` : `**@${purchase.robloxUsername}**`;
   const content = [
     "## 🛒 PEMBELIAN BARU DARI NEKOBUXX!",
@@ -62,9 +62,13 @@ async function publishPurchase(client: Client, purchase: PurchaseRecord): Promis
   ].join("\n");
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setLabel("Lihat Item di Roblox")
+      .setLabel(purchase.itemType === "bundle" ? "Lihat Bundle di Roblox" : "Lihat Item di Roblox")
       .setStyle(ButtonStyle.Link)
-      .setURL(`https://www.roblox.com/catalog/${purchase.assetId}`)
+      .setURL(
+        purchase.itemType === "bundle"
+          ? `https://www.roblox.com/bundles/${purchase.assetId}`
+          : `https://www.roblox.com/catalog/${purchase.assetId}`
+      )
   );
   const message = await channel.send({
     content,

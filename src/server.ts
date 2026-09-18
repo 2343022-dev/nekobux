@@ -9,6 +9,7 @@ interface PurchaseBody {
   robloxUsername?: unknown;
   assetId?: unknown;
   assetName?: unknown;
+  itemType?: unknown;
   priceRobux?: unknown;
   purchasedAt?: unknown;
 }
@@ -26,6 +27,7 @@ function parsePurchase(body: PurchaseBody): PurchaseInput {
   const robloxUsername = String(body.robloxUsername ?? "").trim();
   const assetId = Number(body.assetId);
   const assetName = String(body.assetName ?? "").trim();
+  const itemType = String(body.itemType ?? "asset").trim().toLowerCase();
   const priceRobux = Number(body.priceRobux);
   const purchasedAt = body.purchasedAt ? new Date(String(body.purchasedAt)) : new Date();
 
@@ -34,10 +36,20 @@ function parsePurchase(body: PurchaseBody): PurchaseInput {
   if (!robloxUsername || robloxUsername.length > 40) throw new Error("robloxUsername tidak valid.");
   if (!Number.isSafeInteger(assetId) || assetId <= 0) throw new Error("assetId tidak valid.");
   if (!assetName || assetName.length > 200) throw new Error("assetName tidak valid.");
+  if (itemType !== "asset" && itemType !== "bundle") throw new Error("itemType tidak valid.");
   if (!Number.isInteger(priceRobux) || priceRobux <= 0) throw new Error("priceRobux tidak valid.");
   if (Number.isNaN(purchasedAt.getTime())) throw new Error("purchasedAt tidak valid.");
 
-  return { eventId, robloxUserId, robloxUsername, assetId, assetName, priceRobux, purchasedAt };
+  return {
+    eventId,
+    robloxUserId,
+    robloxUsername,
+    assetId,
+    assetName,
+    itemType,
+    priceRobux,
+    purchasedAt
+  };
 }
 
 export async function startApiServer(

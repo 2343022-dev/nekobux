@@ -51,6 +51,7 @@ export async function initDatabase(): Promise<void> {
       roblox_username TEXT NOT NULL,
       asset_id BIGINT NOT NULL,
       asset_name TEXT NOT NULL,
+      item_type TEXT NOT NULL DEFAULT 'asset',
       price_robux INTEGER NOT NULL CHECK (price_robux > 0),
       cashback_robux INTEGER NOT NULL CHECK (cashback_robux >= 0),
       status TEXT NOT NULL DEFAULT 'pending'
@@ -66,6 +67,9 @@ export async function initDatabase(): Promise<void> {
       ON purchases (roblox_user_id);
     CREATE INDEX IF NOT EXISTS purchases_status_idx
       ON purchases (status);
+
+    ALTER TABLE purchases
+      ADD COLUMN IF NOT EXISTS item_type TEXT NOT NULL DEFAULT 'asset';
 
     CREATE TABLE IF NOT EXISTS claims (
       id BIGSERIAL PRIMARY KEY,
@@ -215,6 +219,7 @@ function mapPurchase(row: Record<string, unknown>): PurchaseRecord {
     robloxUsername: String(row.roblox_username),
     assetId: Number(row.asset_id),
     assetName: String(row.asset_name),
+    itemType: row.item_type === "bundle" ? "bundle" : "asset",
     priceRobux: Number(row.price_robux),
     cashbackRobux: Number(row.cashback_robux),
     status: row.status as PurchaseRecord["status"],
@@ -228,9 +233,9 @@ export async function insertPurchase(input: PurchaseInput): Promise<PurchaseReco
   const fundsAvailableAt = addDays(input.purchasedAt, config.fundsHoldDays);
   const result = await pool.query(
     `INSERT INTO purchases (
-       event_id, roblox_user_id, roblox_username, asset_id, asset_name,
+       event_id, roblox_user_id, roblox_username, asset_id, asset_name, item_type,
        price_robux, cashback_robux, status, purchased_at, funds_available_at
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9)
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9, $10)
      ON CONFLICT (event_id) DO NOTHING
      RETURNING *`,
     [
@@ -239,6 +244,7 @@ export async function insertPurchase(input: PurchaseInput): Promise<PurchaseReco
       input.robloxUsername,
       input.assetId,
       input.assetName,
+      input.itemType,
       input.priceRobux,
       cashback,
       input.purchasedAt,

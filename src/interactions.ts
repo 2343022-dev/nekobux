@@ -270,6 +270,7 @@ async function handleCommand(
       robloxUsername: user.name,
       assetId: interaction.options.getInteger("item-id", true),
       assetName: interaction.options.getString("item-name", true),
+      itemType: "asset",
       priceRobux: interaction.options.getInteger("harga", true),
       purchasedAt: new Date()
     });
