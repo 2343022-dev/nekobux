@@ -45,13 +45,13 @@ export async function renderPurchaseCard(input: {
   const svg = `
   <svg width="1200" height="675" viewBox="0 0 1200 675" xmlns="http://www.w3.org/2000/svg">
     <style>
-      .title { font: 700 34px Arial, sans-serif; fill: #473b37; }
-      .label { font: 700 15px Arial, sans-serif; fill: #8d7770; letter-spacing: 1.2px; }
-      .value { font: 700 35px Arial, sans-serif; fill: #473b37; }
+      .title { font: 700 34px 'DejaVu Sans', sans-serif; fill: #473b37; }
+      .label { font: 700 15px 'DejaVu Sans', sans-serif; fill: #8d7770; letter-spacing: 1.2px; }
+      .value { font: 700 35px 'DejaVu Sans', sans-serif; fill: #473b37; }
       .green { fill: #43856a; }
       .pink { fill: #c66f72; }
-      .muted { font: 500 18px Arial, sans-serif; fill: #967f78; }
-      .small { font: 600 16px Arial, sans-serif; fill: #7f6c66; }
+      .muted { font: 500 18px 'DejaVu Sans', sans-serif; fill: #967f78; }
+      .small { font: 600 16px 'DejaVu Sans', sans-serif; fill: #7f6c66; }
     </style>
     <rect width="1200" height="675" rx="36" fill="#f6efe6"/>
     <rect x="20" y="20" width="1160" height="635" rx="28" fill="none" stroke="#d8c7b9" stroke-width="3"/>
@@ -67,7 +67,7 @@ export async function renderPurchaseCard(input: {
     <g clip-path="url(#assetClip)">${imageOrPlaceholder(item, 55, 128, 410, 465)}</g>
     <rect x="55" y="128" width="410" height="465" rx="24" fill="none" stroke="#bca99e" stroke-width="3"/>
     <rect x="78" y="151" width="112" height="37" rx="10" fill="#6d9a80"/>
-    <text x="134" y="176" text-anchor="middle" style="font:700 16px Arial;fill:#fff">${purchase.itemType === "bundle" ? "BUNDLE" : "CATALOG"}</text>
+    <text x="134" y="176" text-anchor="middle" style="font:700 16px 'DejaVu Sans', sans-serif;fill:#fff">${purchase.itemType === "bundle" ? "BUNDLE" : "CATALOG"}</text>
 
     <text x="505" y="142" class="title">${escapeXml(truncate(purchase.assetName, 35))}</text>
     <text x="505" y="177" class="muted">Pembeli: <tspan font-weight="700">${escapeXml(truncate(buyer, 22))} (@${escapeXml(truncate(purchase.robloxUsername, 22))})</tspan></text>
