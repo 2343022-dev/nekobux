@@ -5,7 +5,7 @@ local HttpService = game:GetService("HttpService")
 local MarketplaceService = game:GetService("MarketplaceService")
 
 local API_URL = "https://GANTI-DOMAIN-BOT-KAMU.up.railway.app/api/purchases"
-local API_SECRET = "9e69927bfb8f11a05c7d3cd3bcf9a282f54b7648dfea4d36e1b8916ed6e5da29"
+local API_SECRET = "masukkan"
 local MIN_ITEM_PRICE = 30
 
 local function reportPurchase(player, assetId)
