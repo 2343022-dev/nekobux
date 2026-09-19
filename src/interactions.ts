@@ -46,19 +46,27 @@ function isAdmin(interaction: Interaction): boolean {
   );
 }
 
-function communityChannelRow(): ActionRowBuilder<ButtonBuilder>[] {
-  if (!config.communityChannelId) return [];
-  return [
-    new ActionRowBuilder<ButtonBuilder>().addComponents(
+function verificationSuccessRows(): ActionRowBuilder<ButtonBuilder>[] {
+  const row = new ActionRowBuilder<ButtonBuilder>();
+  if (config.communityChannelId) {
+    row.addComponents(
       new ButtonBuilder()
-        .setLabel("Buka Map & Community")
-        .setEmoji("🌸")
+        .setLabel("Buka Channel Cashback")
+        .setEmoji("📍")
         .setStyle(ButtonStyle.Link)
         .setURL(
           `https://discord.com/channels/${config.guildId}/${config.communityChannelId}`
         )
-    )
-  ];
+    );
+  }
+  row.addComponents(
+    new ButtonBuilder()
+      .setLabel("Masuk Community")
+      .setEmoji("👥")
+      .setStyle(ButtonStyle.Link)
+      .setURL(`https://www.roblox.com/communities/${config.robloxGroupId}`)
+  );
+  return [row];
 }
 
 export async function handleInteraction(interaction: Interaction, client: Client): Promise<void> {
@@ -190,30 +198,40 @@ async function confirmLink(interaction: ButtonInteraction, robloxUserId: number)
   const guide = config.communityChannelId
     ? `<#${config.communityChannelId}>`
     : "channel panduan map dan komunitas";
+  const readyAt = link.communitySince
+    ? new Date(link.communitySince.getTime() + config.communityWaitDays * 86_400_000)
+    : null;
   const membershipStatus = link.communityMember && link.communitySince
     ? [
-        "✅ **Status komunitas:** terdeteksi sebagai anggota.",
-        `🕒 Pertama terdeteksi ${discordTimestamp(link.communitySince, "F")}.`,
-        `⏳ Syarat **${config.communityWaitDays} hari** mulai dihitung dari waktu tersebut.`
+        "⚠️ **Status Community Roblox:** ✅ **SUDAH BERGABUNG!**",
+        `🕒 Pertama terdeteksi: ${discordTimestamp(link.communitySince, "F")}`,
+        readyAt && readyAt > new Date()
+          ? `⏳ Memenuhi syarat ${discordTimestamp(readyAt, "R")}`
+          : `🎉 Syarat **${config.communityWaitDays} hari** sudah terpenuhi.`
       ].join("\n")
     : [
-        "❌ **Status komunitas:** belum terdeteksi sebagai anggota.",
-        `⏸️ Hitungan **${config.communityWaitDays} hari belum dimulai**.`,
-        `Bot akan memeriksa ulang setiap ${config.membershipCheckMinutes} menit setelah kamu bergabung.`
+        "⚠️ **Status Community Roblox:** ❌ **BELUM BERGABUNG!**",
+        `👉 Tekan tombol **Masuk Community**. Hitungan **${config.communityWaitDays} hari** belum dimulai.`,
+        `Bot memeriksa status setiap ${config.membershipCheckMinutes} menit.`
       ].join("\n");
+  const replacementNotice = existingDiscord && existingDiscord.robloxUserId !== user.id
+    ? `🔄 Akun sebelumnya: **@${existingDiscord.robloxUsername}**`
+    : null;
   await interaction.editReply({
     content: [
-      existingDiscord && existingDiscord.robloxUserId !== user.id
-        ? `✅ Akun Roblox berhasil diganti dari **@${existingDiscord.robloxUsername}** ke **${user.displayName} (@${user.name})**.`
-        : `✅ Berhasil terhubung ke **${user.displayName} (@${user.name})**.`,
-      `📍 Buka ${guide} untuk link map dan Community Roblox.`,
+      "✅ **Berhasil Terhubung!**",
+      `👤 Username Roblox: **${user.name}**`,
+      `🪪 Roblox User ID: **${user.id}**`,
+      `⛔ Nickname Discord: **${guildMember.displayName}** (@${interaction.user.username})`,
+      replacementNotice,
       "",
       membershipStatus,
       "",
-      `Pemeriksaan menggunakan Community ID **${config.robloxGroupId}**.`
-    ].join("\n"),
+      "💸 **Channel Map & Cashback:**",
+      `Kamu sekarang memiliki role terverifikasi dan dapat mengakses ${guide} untuk membuka map dan layanan cashback **${config.cashbackPercent}%**.`
+    ].filter((line): line is string => line !== null).join("\n"),
     embeds: [],
-    components: communityChannelRow()
+    components: verificationSuccessRows()
   });
 }
 
