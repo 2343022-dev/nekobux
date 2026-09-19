@@ -4,6 +4,12 @@
 local HttpService = game:GetService("HttpService")
 local DataStoreService = game:GetService("DataStoreService")
 local MarketplaceService = game:GetService("MarketplaceService")
+local RunService = game:GetService("RunService")
+
+if RunService:IsStudio() then
+    print("[Nekobuxx] Mode Studio aman. Reporter produksi, DataStore, dan Railway dinonaktifkan.")
+    return
+end
 
 local API_URL = "https://GANTI-DOMAIN-BOT-KAMU.up.railway.app/api/purchases"
 local API_SECRET = "GANTI_DENGAN_API_SECRET_YANG_SAMA_DENGAN_BOT"
