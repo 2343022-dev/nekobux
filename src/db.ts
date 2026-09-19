@@ -72,6 +72,10 @@ export async function initDatabase(): Promise<void> {
       funds_available_at TIMESTAMPTZ NOT NULL,
       discord_channel_id TEXT,
       discord_message_id TEXT,
+      discord_delivery_attempts INTEGER NOT NULL DEFAULT 0,
+      discord_delivery_next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      discord_delivery_claimed_at TIMESTAMPTZ,
+      discord_delivery_error TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
@@ -82,6 +86,18 @@ export async function initDatabase(): Promise<void> {
 
     ALTER TABLE purchases
       ADD COLUMN IF NOT EXISTS item_type TEXT NOT NULL DEFAULT 'asset';
+    ALTER TABLE purchases
+      ADD COLUMN IF NOT EXISTS discord_delivery_attempts INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE purchases
+      ADD COLUMN IF NOT EXISTS discord_delivery_next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+    ALTER TABLE purchases
+      ADD COLUMN IF NOT EXISTS discord_delivery_claimed_at TIMESTAMPTZ;
+    ALTER TABLE purchases
+      ADD COLUMN IF NOT EXISTS discord_delivery_error TEXT;
+
+    CREATE INDEX IF NOT EXISTS purchases_discord_delivery_queue_idx
+      ON purchases (discord_delivery_next_attempt_at, id)
+      WHERE discord_message_id IS NULL;
 
     CREATE TABLE IF NOT EXISTS claims (
       id BIGSERIAL PRIMARY KEY,
@@ -362,8 +378,68 @@ export async function savePurchaseMessage(
   messageId: string
 ): Promise<void> {
   await pool.query(
-    "UPDATE purchases SET discord_channel_id = $2, discord_message_id = $3 WHERE id = $1",
+    `UPDATE purchases
+     SET discord_channel_id = $2,
+         discord_message_id = $3,
+         discord_delivery_claimed_at = NULL,
+         discord_delivery_error = NULL
+     WHERE id = $1`,
     [purchaseId, channelId, messageId]
+  );
+}
+
+export interface PurchaseDeliveryRecord extends PurchaseRecord {
+  deliveryAttempts: number;
+}
+
+export async function claimPurchasesForDiscordDelivery(input: {
+  limit: number;
+  purchaseId?: number;
+  leaseSeconds?: number;
+}): Promise<PurchaseDeliveryRecord[]> {
+  const limit = Math.max(1, Math.min(100, Math.floor(input.limit)));
+  const leaseSeconds = Math.max(30, Math.floor(input.leaseSeconds ?? 300));
+  const result = await pool.query(
+    `WITH candidates AS (
+       SELECT id
+       FROM purchases
+       WHERE discord_message_id IS NULL
+         AND discord_delivery_next_attempt_at <= NOW()
+         AND (
+           discord_delivery_claimed_at IS NULL
+           OR discord_delivery_claimed_at <= NOW() - ($2 * INTERVAL '1 second')
+         )
+         AND ($3::bigint IS NULL OR id = $3)
+       ORDER BY discord_delivery_next_attempt_at ASC, id ASC
+       LIMIT $1
+       FOR UPDATE SKIP LOCKED
+     )
+     UPDATE purchases p
+     SET discord_delivery_claimed_at = NOW(),
+         discord_delivery_attempts = p.discord_delivery_attempts + 1
+     FROM candidates c
+     WHERE p.id = c.id
+     RETURNING p.*`,
+    [limit, leaseSeconds, input.purchaseId ?? null]
+  );
+  return result.rows.map((row) => ({
+    ...mapPurchase(row),
+    deliveryAttempts: Number(row.discord_delivery_attempts)
+  }));
+}
+
+export async function markPurchaseDiscordDeliveryFailed(
+  purchaseId: number,
+  error: string,
+  retryDelaySeconds: number
+): Promise<void> {
+  await pool.query(
+    `UPDATE purchases
+     SET discord_delivery_claimed_at = NULL,
+         discord_delivery_next_attempt_at = NOW() + ($3 * INTERVAL '1 second'),
+         discord_delivery_error = LEFT($2, 2000)
+     WHERE id = $1 AND discord_message_id IS NULL`,
+    [purchaseId, error, Math.max(5, Math.floor(retryDelaySeconds))]
   );
 }
 

@@ -10,19 +10,21 @@ import { processClaimQueue } from "./claimQueue.js";
 import { closePool, initDatabase } from "./db.js";
 import { handleInteraction } from "./interactions.js";
 import { startMembershipScheduler } from "./membership.js";
-import { recordPurchase } from "./purchases.js";
+import { recordPurchase, startPurchaseCardRetryScheduler } from "./purchases.js";
 import { startApiServer } from "./server.js";
 import { config } from "./config.js";
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 let api: FastifyInstance | null = null;
 let scheduler: NodeJS.Timeout | null = null;
+let purchaseCardScheduler: NodeJS.Timeout | null = null;
 
 client.once(Events.ClientReady, async (readyClient) => {
   try {
     await registerCommands();
     api = await startApiServer((purchase) => recordPurchase(client, purchase));
     scheduler = startMembershipScheduler(() => processClaimQueue(client));
+    purchaseCardScheduler = startPurchaseCardRetryScheduler(client);
     console.log(`Nekobuxx aktif sebagai ${readyClient.user.tag}.`);
   } catch (error) {
     console.error("Gagal menyiapkan bot:", error);
@@ -37,6 +39,7 @@ client.on(Events.InteractionCreate, (interaction: Interaction) => {
 
 async function shutdown(): Promise<void> {
   if (scheduler) clearInterval(scheduler);
+  if (purchaseCardScheduler) clearInterval(purchaseCardScheduler);
   if (api) await api.close();
   client.destroy();
   await closePool();

@@ -139,3 +139,9 @@ Pemeriksaan berjalan sesuai `MEMBERSHIP_CHECK_MINUTES`. Keluar dan masuk kembali
 - Jalankan `/acc-claim` dari channel ticket agar tautan sumber pemeriksaan tercatat.
 - Jangan menjalankan `/claim-dibayar` sebelum Robux benar-benar dikirim ke username dan Roblox User ID yang tertera.
 - Backup PostgreSQL secara berkala.
+
+## Antrean pengiriman pembelian
+
+Pembelian disimpan secara persisten oleh script Roblox sebelum dikirim ke API. Jika bot atau jaringan sedang bermasalah, script akan mencoba kembali tanpa menghilangkan transaksi. `eventId` mencegah transaksi yang sama tercatat dua kali.
+
+Setelah transaksi masuk PostgreSQL, pengiriman card Discord juga memakai antrean. Bot mencoba kembali saat startup dan setiap `PURCHASE_CARD_RETRY_SECONDS`, maksimal `PURCHASE_CARD_RETRY_BATCH_SIZE` transaksi per putaran.

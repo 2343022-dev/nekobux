@@ -35,6 +35,8 @@ export const config = {
   cashbackPercent: numberValue("CASHBACK_PERCENT", 20),
   communityWaitDays: numberValue("COMMUNITY_WAIT_DAYS", 7),
   membershipCheckMinutes: numberValue("MEMBERSHIP_CHECK_MINUTES", 60),
+  purchaseCardRetrySeconds: numberValue("PURCHASE_CARD_RETRY_SECONDS", 30),
+  purchaseCardRetryBatchSize: numberValue("PURCHASE_CARD_RETRY_BATCH_SIZE", 10),
   apiSecret: required("API_SECRET"),
   port: numberValue("PORT", 3000),
   databaseUrl: required("DATABASE_URL"),

@@ -8,11 +8,14 @@ import {
 import { renderPurchaseCard } from "./card.js";
 import { config } from "./config.js";
 import {
+  claimPurchasesForDiscordDelivery,
   getBalance,
   getLinkByRoblox,
   insertPurchase,
+  markPurchaseDiscordDeliveryFailed,
   refreshEligibilityForUser,
-  savePurchaseMessage
+  savePurchaseMessage,
+  type PurchaseDeliveryRecord
 } from "./db.js";
 import { getAvatarThumbnail, getItemThumbnail } from "./roblox.js";
 import type { PurchaseInput, PurchaseRecord } from "./types.js";
@@ -22,6 +25,8 @@ export interface RecordPurchaseResult {
   duplicate: boolean;
   purchase: PurchaseRecord | null;
 }
+
+let purchaseDeliveryRunning = false;
 
 export async function recordPurchase(
   client: Client,
@@ -35,12 +40,68 @@ export async function recordPurchase(
   if (!purchase) return { duplicate: true, purchase: null };
 
   await refreshEligibilityForUser(input.robloxUserId);
+  void processPurchaseCardQueue(client, purchase.id).catch((error) =>
+    console.error(`[purchase-delivery] ${purchase.eventId}: ${errorMessage(error)}`)
+  );
+  return { duplicate: false, purchase };
+}
+
+function retryDelaySeconds(attempt: number): number {
+  const base = Math.max(5, Math.floor(config.purchaseCardRetrySeconds));
+  return Math.min(30 * 60, base * 2 ** Math.min(Math.max(attempt - 1, 0), 6));
+}
+
+async function deliverPurchaseCard(
+  client: Client,
+  purchase: PurchaseDeliveryRecord
+): Promise<void> {
   try {
     await publishPurchase(client, purchase);
   } catch (error) {
-    console.error(`[purchase-card] ${purchase.eventId}: ${errorMessage(error)}`);
+    const message = errorMessage(error);
+    await markPurchaseDiscordDeliveryFailed(
+      purchase.id,
+      message,
+      retryDelaySeconds(purchase.deliveryAttempts)
+    );
+    console.error(
+      `[purchase-card-retry] ${purchase.eventId} attempt ${purchase.deliveryAttempts}: ${message}`
+    );
   }
-  return { duplicate: false, purchase };
+}
+
+export async function processPurchaseCardQueue(
+  client: Client,
+  purchaseId?: number
+): Promise<void> {
+  if (purchaseDeliveryRunning) return;
+  purchaseDeliveryRunning = true;
+  try {
+    const purchases = await claimPurchasesForDiscordDelivery({
+      limit: purchaseId
+        ? 1
+        : Math.max(1, Math.floor(config.purchaseCardRetryBatchSize)),
+      purchaseId
+    });
+    for (const purchase of purchases) {
+      await deliverPurchaseCard(client, purchase);
+    }
+  } finally {
+    purchaseDeliveryRunning = false;
+  }
+}
+
+export function startPurchaseCardRetryScheduler(client: Client): NodeJS.Timeout {
+  const run = (): void => {
+    void processPurchaseCardQueue(client).catch((error) =>
+      console.error(`[purchase-card-scheduler] ${errorMessage(error)}`)
+    );
+  };
+  run();
+  return setInterval(
+    run,
+    Math.max(5, Math.floor(config.purchaseCardRetrySeconds)) * 1000
+  );
 }
 
 async function publishPurchase(client: Client, purchase: PurchaseRecord): Promise<void> {
