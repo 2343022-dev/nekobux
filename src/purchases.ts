@@ -18,8 +18,13 @@ import {
   type PurchaseDeliveryRecord
 } from "./db.js";
 import { getAvatarThumbnail, getItemThumbnail } from "./roblox.js";
-import type { PurchaseInput, PurchaseRecord } from "./types.js";
-import { errorMessage } from "./utils.js";
+import type {
+  BalanceSummary,
+  PurchaseInput,
+  PurchaseItemType,
+  PurchaseRecord
+} from "./types.js";
+import { calculateCashback, errorMessage } from "./utils.js";
 
 export interface RecordPurchaseResult {
   duplicate: boolean;
@@ -104,6 +109,101 @@ export function startPurchaseCardRetryScheduler(client: Client): NodeJS.Timeout 
   );
 }
 
+export async function sendPurchaseCardPreview(
+  client: Client,
+  input: {
+    robloxUserId: number;
+    robloxUsername: string;
+    assetId: number;
+    assetName: string;
+    itemType: PurchaseItemType;
+    priceRobux: number;
+  }
+): Promise<string> {
+  const channel = await client.channels.fetch(config.purchaseLogChannelId);
+
+  if (!channel?.isSendable()) {
+    throw new Error("Channel log pembelian tidak dapat dikirimi pesan.");
+  }
+
+  const cashbackRobux = calculateCashback(
+    input.priceRobux,
+    config.cashbackPercent
+  );
+
+  const now = new Date();
+
+  const purchase: PurchaseRecord = {
+    id: 0,
+    eventId: `preview-${now.getTime()}`,
+    robloxUserId: input.robloxUserId,
+    robloxUsername: input.robloxUsername,
+    assetId: input.assetId,
+    assetName: input.assetName,
+    itemType: input.itemType,
+    priceRobux: input.priceRobux,
+    purchasedAt: now,
+    cashbackRobux,
+    status: "pending",
+    fundsAvailableAt: now
+  };
+
+  const balance: BalanceSummary = {
+    pending: cashbackRobux,
+    available: 0,
+    locked: 0,
+    paid: 0,
+    totalSpent: input.priceRobux,
+    totalCashback: cashbackRobux
+  };
+
+  const [avatarUrl, itemUrl] = await Promise.all([
+    getAvatarThumbnail(input.robloxUserId).catch(() => null),
+    getItemThumbnail(input.assetId, input.itemType).catch(() => null)
+  ]);
+
+  const card = await renderPurchaseCard({
+    purchase,
+    link: null,
+    balance,
+    avatarUrl,
+    itemUrl
+  });
+
+  const itemUrlTarget =
+    input.itemType === "bundle"
+      ? `https://www.roblox.com/bundles/${input.assetId}`
+      : `https://www.roblox.com/catalog/${input.assetId}`;
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setLabel(
+        input.itemType === "bundle"
+          ? "Lihat Bundle di Roblox"
+          : "Lihat Item di Roblox"
+      )
+      .setStyle(ButtonStyle.Link)
+      .setURL(itemUrlTarget)
+  );
+
+  const message = await channel.send({
+    content: [
+      "## 🧪 PREVIEW CARD PEMBELIAN",
+      "**Ini hanya pengujian admin—tidak ada transaksi atau saldo yang ditambahkan.**",
+      `**@${input.robloxUsername}** membeli **${input.assetName}** seharga **${input.priceRobux} Robux**`,
+      `Preview cashback: **+${cashbackRobux} Robux**`
+    ].join("\n"),
+    files: [
+      new AttachmentBuilder(card, {
+        name: "purchase-preview.png"
+      })
+    ],
+    components: [row],
+    allowedMentions: { parse: [] }
+  });
+
+  return message.url;
+}
 async function publishPurchase(client: Client, purchase: PurchaseRecord): Promise<void> {
   const channel = await client.channels.fetch(config.purchaseLogChannelId);
   if (!channel?.isSendable()) throw new Error("Channel log pembelian tidak dapat dikirimi pesan.");

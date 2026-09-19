@@ -51,6 +51,36 @@ const commands = [
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder()
+    .setName("test-purchase-card")
+    .setDescription("Kirim preview card pembelian tanpa menambah saldo.")
+    .addStringOption((option) =>
+      option.setName("username").setDescription("Username Roblox untuk preview").setRequired(true)
+    )
+    .addIntegerOption((option) =>
+      option.setName("item-id").setDescription("Asset atau bundle ID").setMinValue(1).setRequired(true)
+    )
+    .addStringOption((option) =>
+      option.setName("item-name").setDescription("Nama item untuk preview").setRequired(true)
+    )
+    .addIntegerOption((option) =>
+      option
+        .setName("harga")
+        .setDescription("Harga item dalam Robux")
+        .setMinValue(config.minimumItemPrice)
+        .setRequired(true)
+    )
+    .addStringOption((option) =>
+      option
+        .setName("jenis")
+        .setDescription("Jenis produk Roblox")
+        .setRequired(false)
+        .addChoices(
+          { name: "Catalog item", value: "asset" },
+          { name: "Bundle", value: "bundle" }
+        )
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder()
     .setName("admin-community-age")
     .setDescription("Koreksi lama keanggotaan komunitas setelah admin memeriksa.")
     .addStringOption((option) =>

@@ -114,6 +114,7 @@ Jangan memasukkan `API_SECRET` ke `NekobuxxShop.client.lua`. LocalScript dapat d
 | `/batal-claim id:... alasan:...` | Admin | Membatalkan klaim dan mengembalikan saldo |
 | `/admin-unlink` | Admin | Melepas hubungan akun dan role Verified |
 | `/admin-add-purchase` | Admin | Memasukkan transaksi yang gagal tercatat |
+| `/test-purchase-card` | Admin | Mengirim preview card ke channel log tanpa menambah transaksi atau saldo |
 | `/admin-community-age` | Admin | Mengoreksi usia komunitas setelah pemeriksaan manual |
 | `/admin-community-check` | Admin | Memeriksa status terbaru langsung dari API Roblox |
 

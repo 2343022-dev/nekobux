@@ -33,7 +33,7 @@ import {
 } from "./db.js";
 import { refreshMembership } from "./membership.js";
 import { verificationPanel } from "./panels.js";
-import { recordPurchase } from "./purchases.js";
+import { recordPurchase, sendPurchaseCardPreview } from "./purchases.js";
 import {
   getAvatarThumbnail,
   getRobloxUser,
@@ -381,6 +381,35 @@ async function handleCommand(
     return;
   }
 
+  if (interaction.commandName === "test-purchase-card") {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    const username = interaction.options.getString("username", true);
+    const user = await resolveRobloxUsername(username);
+
+    if (!user) {
+      await interaction.editReply("Username Roblox tidak ditemukan.");
+      return;
+    }
+
+    const itemType =
+      interaction.options.getString("jenis") === "bundle"
+        ? "bundle"
+        : "asset";
+
+    const messageUrl = await sendPurchaseCardPreview(client, {
+      robloxUserId: user.id,
+      robloxUsername: user.name,
+      assetId: interaction.options.getInteger("item-id", true),
+      assetName: interaction.options.getString("item-name", true),
+      itemType,
+      priceRobux: interaction.options.getInteger("harga", true)
+    });
+
+    await interaction.editReply(
+      `Preview berhasil dikirim: ${messageUrl}\nTidak ada transaksi atau saldo yang ditambahkan.`
+    );
+    return;
+  }
   if (interaction.commandName === "admin-community-age") {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const username = interaction.options.getString("username", true);
