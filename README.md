@@ -108,11 +108,13 @@ Jangan memasukkan `API_SECRET` ke `NekobuxxShop.client.lua`. LocalScript dapat d
 | Perintah | Akses | Fungsi |
 |---|---|---|
 | `/saldo` | User | Melihat pending, available, locked, paid, dan status komunitas |
+| `/riwayat` | User | Melihat riwayat pembelian dan status cashback milik sendiri |
 | `/panel` | Admin | Mengirim panel verifikasi |
 | `/acc-claim user:@User` | Admin | Mengunci seluruh saldo belum diklaim dan memasukkannya ke antrean |
 | `/claim-dibayar id:...` | Admin | Menandai pencairan manual sebagai selesai |
 | `/batal-claim id:... alasan:...` | Admin | Membatalkan klaim dan mengembalikan saldo |
 | `/admin-unlink` | Admin | Melepas hubungan akun dan role Verified |
+| `/admin-riwayat user:@User` | Admin | Melihat riwayat pembelian dan cashback milik user |
 | `/admin-add-purchase` | Admin | Memasukkan transaksi yang gagal tercatat |
 | `/test-purchase-card` | Admin | Mengirim preview card ke channel log tanpa menambah transaksi atau saldo |
 | `/admin-community-age` | Admin | Mengoreksi usia komunitas setelah pemeriksaan manual |

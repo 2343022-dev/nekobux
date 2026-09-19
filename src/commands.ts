@@ -11,6 +11,9 @@ const commands = [
     .setName("saldo")
     .setDescription("Lihat saldo cashback Roblox kamu."),
   new SlashCommandBuilder()
+    .setName("riwayat")
+    .setDescription("Lihat riwayat pembelian dan cashback Roblox kamu."),
+  new SlashCommandBuilder()
     .setName("panel")
     .setDescription("Kirim panel bot ke channel ini.")
     .addStringOption((option) =>
@@ -28,6 +31,16 @@ const commands = [
     .setDescription("Lepaskan hubungan Discord–Roblox milik user.")
     .addUserOption((option) =>
       option.setName("user").setDescription("User Discord").setRequired(true)
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder()
+    .setName("admin-riwayat")
+    .setDescription("Lihat riwayat pembelian dan cashback milik user.")
+    .addUserOption((option) =>
+      option
+        .setName("user")
+        .setDescription("User Discord")
+        .setRequired(true)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder()

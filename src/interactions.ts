@@ -32,6 +32,7 @@ import {
   unlinkDiscord
 } from "./db.js";
 import { refreshMembership } from "./membership.js";
+import { buildPurchaseHistoryView } from "./history.js";
 import { verificationPanel } from "./panels.js";
 import { recordPurchase, sendPurchaseCardPreview } from "./purchases.js";
 import {
@@ -135,6 +136,10 @@ export async function handleInteraction(interaction: Interaction, client: Client
           content: "Gunakan panel ticket claim yang tersedia di server. Ticket tidak lagi dibuat oleh bot ini.",
           flags: MessageFlags.Ephemeral
         });
+        return;
+      }
+      if (interaction.customId.startsWith("history:")) {
+        await showHistoryPage(interaction);
         return;
       }
       if (interaction.customId.startsWith("claim:")) {
@@ -308,6 +313,78 @@ async function showBalance(
   await interaction.editReply({ embeds: [embed] });
 }
 
+async function showHistoryPage(
+  interaction: ButtonInteraction
+): Promise<void> {
+  const [, robloxUserIdText, pageText] =
+    interaction.customId.split(":");
+
+  const robloxUserId = Number(robloxUserIdText);
+  const page = Number(pageText);
+
+  if (
+    !Number.isSafeInteger(robloxUserId) ||
+    !Number.isSafeInteger(page)
+  ) {
+    await interaction.reply({
+      content:
+        "Tombol riwayat tidak valid. Jalankan `/riwayat` kembali.",
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const link = await getLinkByRoblox(robloxUserId);
+
+  if (!link) {
+    await interaction.reply({
+      content:
+        "Akun Roblox untuk riwayat ini tidak lagi terhubung.",
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  if (
+    link.discordUserId !== interaction.user.id &&
+    !isAdmin(interaction)
+  ) {
+    await interaction.reply({
+      content:
+        "Kamu tidak diizinkan membuka riwayat user lain.",
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  await interaction.deferUpdate();
+  await interaction.editReply(
+    await buildPurchaseHistoryView(link, page)
+  );
+}
+
+async function showOwnHistory(
+  interaction: ChatInputCommandInteraction
+): Promise<void> {
+  await interaction.deferReply({
+    flags: MessageFlags.Ephemeral
+  });
+
+  const original = await getLinkByDiscord(interaction.user.id);
+
+  if (!original) {
+    await interaction.editReply(
+      "Hubungkan akun Roblox kamu terlebih dahulu."
+    );
+    return;
+  }
+
+  const link = await refreshMembership(original);
+
+  await interaction.editReply(
+    await buildPurchaseHistoryView(link)
+  );
+}
 async function handleCommand(
   interaction: ChatInputCommandInteraction,
   client: Client
@@ -316,11 +393,37 @@ async function handleCommand(
     await showBalance(interaction);
     return;
   }
+  if (interaction.commandName === "riwayat") {
+    await showOwnHistory(interaction);
+    return;
+  }
   if (!isAdmin(interaction)) {
     await interaction.reply({ content: "Perintah ini khusus admin.", flags: MessageFlags.Ephemeral });
     return;
   }
 
+  if (interaction.commandName === "admin-riwayat") {
+    await interaction.deferReply({
+      flags: MessageFlags.Ephemeral
+    });
+
+    const target = interaction.options.getUser("user", true);
+    const original = await getLinkByDiscord(target.id);
+
+    if (!original) {
+      await interaction.editReply(
+        `${target} belum menghubungkan akun Roblox.`
+      );
+      return;
+    }
+
+    const link = await refreshMembership(original);
+
+    await interaction.editReply(
+      await buildPurchaseHistoryView(link)
+    );
+    return;
+  }
   if (interaction.commandName === "panel") {
     if (!interaction.channel?.isSendable()) throw new Error("Channel ini tidak dapat dikirimi pesan.");
     await interaction.channel.send(verificationPanel());

@@ -492,6 +492,50 @@ export async function getBalance(robloxUserId: number): Promise<BalanceSummary> 
   };
 }
 
+export interface PurchaseHistoryPage {
+  purchases: PurchaseRecord[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export async function getPurchaseHistory(input: {
+  robloxUserId: number;
+  page?: number;
+  pageSize?: number;
+}): Promise<PurchaseHistoryPage> {
+  const pageSize = Math.max(
+    1,
+    Math.min(10, Math.floor(input.pageSize ?? 10))
+  );
+
+  const countResult = await pool.query(
+    "SELECT COUNT(*)::int AS total FROM purchases WHERE roblox_user_id = $1",
+    [input.robloxUserId]
+  );
+
+  const totalItems = Number(countResult.rows[0]?.total ?? 0);
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const requestedPage = Math.max(0, Math.floor(input.page ?? 0));
+  const page = Math.min(requestedPage, totalPages - 1);
+
+  const result = await pool.query(
+    `SELECT * FROM purchases
+     WHERE roblox_user_id = $1
+     ORDER BY purchased_at DESC, id DESC
+     LIMIT $2 OFFSET $3`,
+    [input.robloxUserId, pageSize, page * pageSize]
+  );
+
+  return {
+    purchases: result.rows.map(mapPurchase),
+    page,
+    pageSize,
+    totalItems,
+    totalPages
+  };
+}
 export async function getActiveClaim(discordUserId: string): Promise<ClaimRecord | null> {
   const result = await pool.query(
     "SELECT * FROM claims WHERE discord_user_id = $1 AND status IN ('open', 'verified') LIMIT 1",
