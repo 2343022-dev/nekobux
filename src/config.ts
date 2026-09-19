@@ -22,6 +22,8 @@ export const config = {
   adminRoleId: required("ADMIN_ROLE_ID"),
   purchaseLogChannelId: required("PURCHASE_LOG_CHANNEL_ID"),
   communityChannelId: process.env.COMMUNITY_CHANNEL_ID?.trim() || "",
+  claimChannelId:
+    process.env.CLAIM_CHANNEL_ID?.trim() || "1550138645619671091",
   ticketCategoryId: required("TICKET_CATEGORY_ID"),
   payoutLogChannelId: process.env.PAYOUT_LOG_CHANNEL_ID?.trim() || "",
   payoutQueueChannelId:

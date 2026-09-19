@@ -52,8 +52,24 @@ function isAdmin(interaction: Interaction): boolean {
   );
 }
 
-function verificationSuccessRows(): ActionRowBuilder<ButtonBuilder>[] {
+function verificationSuccessRows(
+  communityMember: boolean
+): ActionRowBuilder<ButtonBuilder>[] {
   const row = new ActionRowBuilder<ButtonBuilder>();
+
+  if (communityMember) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setLabel("Buka Channel Claim")
+        .setEmoji("💸")
+        .setStyle(ButtonStyle.Link)
+        .setURL(
+          `https://discord.com/channels/${config.guildId}/${config.claimChannelId}`
+        )
+    );
+    return [row];
+  }
+
   if (config.communityChannelId) {
     row.addComponents(
       new ButtonBuilder()
@@ -65,6 +81,7 @@ function verificationSuccessRows(): ActionRowBuilder<ButtonBuilder>[] {
         )
     );
   }
+
   row.addComponents(
     new ButtonBuilder()
       .setLabel("Masuk Community")
@@ -204,9 +221,17 @@ async function confirmLink(interaction: ButtonInteraction, robloxUserId: number)
   const guildMember = await interaction.guild.members.fetch(interaction.user.id);
   await guildMember.roles.add(config.verifiedRoleId, "Roblox account linked");
   await refreshEligibilityForUser(user.id);
-  const guide = config.communityChannelId
-    ? `<#${config.communityChannelId}>`
-    : "channel panduan map dan komunitas";
+  const destinationChannel = link.communityMember
+    ? `<#${config.claimChannelId}>`
+    : config.communityChannelId
+      ? `<#${config.communityChannelId}>`
+      : "channel panduan map dan komunitas";
+  const destinationTitle = link.communityMember
+    ? "💸 **Channel Claim Cashback:**"
+    : "💸 **Channel Map & Cashback:**";
+  const destinationDescription = link.communityMember
+    ? `Buka ${destinationChannel} untuk membuat ticket dan mengajukan claim cashback **${config.cashbackPercent}%**. Pencairan tetap mengikuti masa tunggu Community.`
+    : `Kamu sekarang memiliki role terverifikasi dan dapat mengakses ${destinationChannel} untuk membuka map dan layanan cashback **${config.cashbackPercent}%**.`;
   const readyAt = link.communitySince
     ? new Date(link.communitySince.getTime() + config.communityWaitDays * 86_400_000)
     : null;
@@ -240,11 +265,11 @@ async function confirmLink(interaction: ButtonInteraction, robloxUserId: number)
       "",
       membershipStatus,
       "",
-      "💸 **Channel Map & Cashback:**",
-      `Kamu sekarang memiliki role terverifikasi dan dapat mengakses ${guide} untuk membuka map dan layanan cashback **${config.cashbackPercent}%**.`
+      destinationTitle,
+      destinationDescription
     ].filter((line): line is string => line !== null).join("\n"),
     embeds: [],
-    components: verificationSuccessRows()
+    components: verificationSuccessRows(link.communityMember)
   });
 }
 
