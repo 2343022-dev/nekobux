@@ -1,4 +1,10 @@
-import { Client, EmbedBuilder, type APIEmbedField } from "discord.js";
+import {
+  AttachmentBuilder,
+  Client,
+  EmbedBuilder,
+  type APIEmbedField
+} from "discord.js";
+import { renderAdminAuditCard } from "./adminAuditCard.js";
 import { config } from "./config.js";
 import { errorMessage } from "./utils.js";
 
@@ -23,20 +29,42 @@ export async function sendAdminAuditLog(
   input: AdminAuditInput
 ): Promise<boolean> {
   if (!config.payoutLogChannelId) {
-    console.warn(
-      `[admin-audit] /${input.command} tidak dicatat: PAYOUT_LOG_CHANNEL_ID kosong.`
-    );
+    console.warn(`[admin-audit] /${input.command} tidak dicatat: PAYOUT_LOG_CHANNEL_ID kosong.`);
     return false;
   }
 
   try {
     const channel = await client.channels.fetch(config.payoutLogChannelId);
-
     if (!channel?.isSendable()) {
-      console.error(
-        "[admin-audit] Channel audit tidak ditemukan atau tidak dapat dikirimi pesan."
-      );
+      console.error("[admin-audit] Channel audit tidak ditemukan atau tidak dapat dikirimi pesan.");
       return false;
+    }
+
+    const createdAt = new Date();
+    const admin = await client.users.fetch(input.adminDiscordId).catch(() => null);
+    try {
+      const card = await renderAdminAuditCard({
+        title: input.title,
+        command: input.command,
+        adminName: admin?.displayName ?? admin?.username ?? "Admin",
+        adminDiscordId: input.adminDiscordId,
+        adminAvatarUrl: admin?.displayAvatarURL({ extension: "png", size: 256 }) ?? null,
+        color: input.color ?? 0xb79aa0,
+        fields: input.fields ?? [],
+        createdAt
+      });
+      await channel.send({
+        content: `🗂️ **${input.title}**`,
+        files: [
+          new AttachmentBuilder(card, {
+            name: `audit-${input.command}-${createdAt.getTime()}.png`
+          })
+        ],
+        allowedMentions: { parse: [] }
+      });
+      return true;
+    } catch (cardError) {
+      console.error(`[admin-audit-card] /${input.command}: ${errorMessage(cardError)}`);
     }
 
     const embed = new EmbedBuilder()
@@ -53,21 +81,16 @@ export async function sendAdminAuditLog(
         },
         ...(input.fields ?? []).map(safeField)
       )
-      .setFooter({
-        text: "Nekobux Admin Audit • Jangan hapus pesan ini"
-      })
-      .setTimestamp();
+      .setFooter({ text: "Nekobux Admin Audit • Jangan hapus pesan ini" })
+      .setTimestamp(createdAt);
 
     await channel.send({
       embeds: [embed],
       allowedMentions: { parse: [] }
     });
-
     return true;
   } catch (error) {
-    console.error(
-      `[admin-audit] /${input.command}: ${errorMessage(error)}`
-    );
+    console.error(`[admin-audit] /${input.command}: ${errorMessage(error)}`);
     return false;
   }
 }
