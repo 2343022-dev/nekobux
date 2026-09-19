@@ -49,9 +49,9 @@ export function cashbackPanel(): {
       [
         `Cashback **${config.cashbackPercent}%** dari item minimal **${config.minimumItemPrice} Robux** akan digabung menjadi satu saldo.`,
         "",
-        `Syarat pencairan: tetap menjadi anggota komunitas Roblox selama **${config.communityWaitDays} hari** dan dana pembelian sudah melewati masa tunggu **${config.fundsHoldDays} hari**.`,
+        `Syarat pencairan: tetap menjadi anggota Community Roblox selama **${config.communityWaitDays} hari**.`,
         "",
-        "Claim akan membuka ticket privat. Kirim bukti pembelian di sana, lalu admin akan memeriksa dan membayar secara manual."
+        "Gunakan panel ticket claim yang disediakan server. Setelah bukti diperiksa, admin akan memasukkan saldomu ke antrean pencairan."
       ].join("\n")
     );
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -59,12 +59,7 @@ export function cashbackPanel(): {
       .setCustomId("cashback:balance")
       .setLabel("Cek Saldo")
       .setEmoji("💳")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("cashback:claim")
-      .setLabel("Buat Ticket Claim")
-      .setEmoji("🎫")
-      .setStyle(ButtonStyle.Success)
+      .setStyle(ButtonStyle.Secondary)
   );
   return { embeds: [embed], components: [row] };
 }

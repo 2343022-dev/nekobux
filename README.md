@@ -1,6 +1,6 @@
 # Nekobuxx Cashback Bot
 
-Bot Discord + API untuk cashback item Roblox: verifikasi username, pencatatan pembelian dalam kartu gambar, saldo gabungan, syarat komunitas 14 hari, dan ticket payout manual.
+Bot Discord + API untuk cashback item Roblox: verifikasi username, pencatatan pembelian dalam kartu gambar, saldo gabungan, syarat Community yang dapat diatur, dan antrean payout manual.
 
 ## Cara kerja
 
@@ -8,8 +8,11 @@ Bot Discord + API untuk cashback item Roblox: verifikasi username, pencatatan pe
 2. Bot memberi role Verified. Satu Discord hanya boleh terhubung ke satu Roblox ID, dan sebaliknya.
 3. ServerScript Roblox melaporkan pembelian ke API bot. Transaksi disimpan berdasarkan Roblox User ID, jadi pembelian sebelum user terhubung ke Discord tetap dapat ditemukan.
 4. Cashback dihitung dengan `floor(harga × 20%)`. Item di bawah 30 Robux ditolak.
-5. Saldo menjadi available setelah masa dana tertahan dan syarat komunitas terpenuhi.
-6. User membuat ticket, mengirim screenshot, admin memvalidasi, membayar manual, lalu menandai claim sebagai dibayar.
+5. User membuat ticket melalui bot ticket eksternal dan mengirim bukti pembelian.
+6. Admin menjalankan `/acc-claim user:@User`. Seluruh saldo yang belum diklaim dikunci.
+7. Setelah masa Community terpenuhi, bot mengirim klaim ke channel `list-pencairan`.
+8. Admin membayar ke username Roblox lalu menjalankan `/claim-dibayar id:...`.
+9. Jika user keluar sebelum dibayar, klaim dibatalkan, saldo dikembalikan, dan laporan dikirim ke `gagal-claim`.
 
 > Payout selalu ditujukan ke Roblox User ID yang tersimpan, bukan ke username Discord. Verifikasi username ini tidak membuktikan kepemilikan akun Roblox; desain ini mencegah pengalihan payout, tetapi orang masih bisa “mengunci” username orang lain lebih dulu. Admin dapat memperbaikinya dengan `/admin-unlink`. Verifikasi kode di profil/game dapat ditambahkan nanti jika dibutuhkan.
 
@@ -37,10 +40,11 @@ Buat:
 - role **Verified**;
 - role **Admin Cashback**;
 - channel log pembelian;
-- category ticket;
+- channel `list-pencairan`;
+- channel `gagal-claim`;
 - opsional: channel log payout.
 
-Atur channel awal agar `@everyone` hanya dapat melihat channel verifikasi. Channel lain menolak `@everyone` dan mengizinkan role Verified. Setelah bot aktif, jalankan `/panel jenis:Verifikasi Roblox` di channel verifikasi dan `/panel jenis:Saldo & claim` di channel cashback.
+Atur channel awal agar `@everyone` hanya dapat melihat channel verifikasi. Channel lain menolak `@everyone` dan mengizinkan role Verified. Setelah bot aktif, jalankan `/panel jenis:Verifikasi Roblox` di channel verifikasi. Ticket claim dibuat menggunakan bot ticket eksternal.
 
 ## 3. Konfigurasi
 
@@ -53,14 +57,16 @@ GUILD_ID=...
 VERIFIED_ROLE_ID=...
 ADMIN_ROLE_ID=...
 PURCHASE_LOG_CHANNEL_ID=...
+COMMUNITY_CHANNEL_ID=...
 TICKET_CATEGORY_ID=...
 PAYOUT_LOG_CHANNEL_ID=...
+PAYOUT_QUEUE_CHANNEL_ID=1550788584758448248
+FAILED_CLAIM_CHANNEL_ID=1550796997148287098
 
 ROBLOX_GROUP_ID=90169160
 MIN_ITEM_PRICE=30
 CASHBACK_PERCENT=20
-COMMUNITY_WAIT_DAYS=14
-FUNDS_HOLD_DAYS=30
+COMMUNITY_WAIT_DAYS=7
 MEMBERSHIP_CHECK_MINUTES=60
 
 API_SECRET=buat-rangkaian-acak-yang-panjang
@@ -69,7 +75,9 @@ DATABASE_URL=postgresql://...
 DATABASE_SSL=false
 ```
 
-`FUNDS_HOLD_DAYS` dibuat terpisah dari syarat komunitas agar dapat disesuaikan dengan waktu dana Roblox tersedia. Ubah ke `0` bila tidak ingin masa tunggu dana.
+`COMMUNITY_CHANNEL_ID` adalah channel berisi link map dan Community Roblox. Setelah verifikasi, bot akan menampilkan mention dan tombol yang langsung membuka channel tersebut.
+
+`PAYOUT_QUEUE_CHANNEL_ID` adalah channel `list-pencairan`. `FAILED_CLAIM_CHANNEL_ID` adalah channel `gagal-claim`.
 
 ## 4. Instal dan jalankan
 
@@ -85,25 +93,32 @@ Database dan tabel dibuat otomatis saat bot mulai. Endpoint pengecekan: `GET /he
 ## 5. Hubungkan Roblox
 
 1. Di Roblox Studio, aktifkan **Game Settings → Security → Allow HTTP Requests**.
-2. Salin `roblox/NekobuxxPurchaseReporter.server.lua` ke `ServerScriptService`.
-3. Ganti `API_URL` dengan domain bot dan `API_SECRET` dengan nilai yang sama seperti `.env`.
-4. Publish experience.
+2. Salin `roblox/NekobuxxShop.client.lua` ke `StarterPlayer > StarterPlayerScripts` sebagai **LocalScript**.
+3. Salin `roblox/NekobuxxPurchaseReporter.server.lua` ke `ServerScriptService` sebagai **Script**.
+4. Di ServerScript, ganti `API_URL` dengan domain bot dan `API_SECRET` dengan nilai yang sama seperti Railway.
+5. Publish experience.
 
-Script mendengarkan `MarketplaceService.PromptPurchaseFinished`, mengambil info item, mengecek kepemilikan, lalu mengirim laporan dari server Roblox. Event ini adalah sinyal pembelian di dalam sesi, bukan bukti settlement keuangan final; karena itu screenshot dan pemeriksaan admin tetap dipakai saat payout.
+ServerScript mendengarkan pembelian asset maupun bundle, mengambil detail item, lalu mengirim laporan dari server Roblox dengan retry dan event ID yang tetap. Event pembelian ini adalah sinyal pembelian di dalam sesi, bukan bukti settlement keuangan final; karena itu screenshot dan pemeriksaan admin tetap dipakai saat payout.
+
+Jangan memasukkan `API_SECRET` ke `NekobuxxShop.client.lua`. LocalScript dapat diakses oleh client; secret hanya boleh berada di ServerScript.
 
 ## Perintah
 
 | Perintah | Akses | Fungsi |
 |---|---|---|
 | `/saldo` | User | Melihat pending, available, locked, paid, dan status komunitas |
-| `/panel` | Admin | Mengirim panel verifikasi atau cashback |
+| `/panel` | Admin | Mengirim panel verifikasi |
+| `/acc-claim user:@User` | Admin | Mengunci seluruh saldo belum diklaim dan memasukkannya ke antrean |
+| `/claim-dibayar id:...` | Admin | Menandai pencairan manual sebagai selesai |
+| `/batal-claim id:... alasan:...` | Admin | Membatalkan klaim dan mengembalikan saldo |
 | `/admin-unlink` | Admin | Melepas hubungan akun dan role Verified |
 | `/admin-add-purchase` | Admin | Memasukkan transaksi yang gagal tercatat |
 | `/admin-community-age` | Admin | Mengoreksi usia komunitas setelah pemeriksaan manual |
+| `/admin-community-check` | Admin | Memeriksa status terbaru langsung dari API Roblox |
 
-## Catatan aturan 14 hari
+## Catatan masa tunggu komunitas
 
-API grup Roblox menunjukkan apakah user sedang menjadi anggota, tetapi tidak memberikan tanggal awal join. Karena itu bot mulai menghitung sejak pertama kali keanggotaan terdeteksi. Jika user terdeteksi keluar, tanggal dihapus dan transaksi available kembali pending; ketika bergabung lagi, hitungan dimulai dari nol.
+API grup Roblox menunjukkan apakah user sedang menjadi anggota, tetapi tidak memberikan tanggal awal join. Karena itu bot mulai menghitung sejak pertama kali keanggotaan terdeteksi. Durasi diatur lewat `COMMUNITY_WAIT_DAYS`, sehingga dapat diubah tanpa mengedit kode. Jika user terdeteksi keluar, tanggal dihapus dan transaksi available kembali pending; ketika bergabung lagi, hitungan dimulai dari nol.
 
 Pemeriksaan berjalan sesuai `MEMBERSHIP_CHECK_MINUTES`. Keluar dan masuk kembali sepenuhnya di antara dua pemeriksaan tidak dapat dideteksi oleh API polling. Untuk member lama, admin dapat memeriksa secara manual lalu memakai `/admin-community-age username:... hari:...`.
 
@@ -113,13 +128,13 @@ Pemeriksaan berjalan sesuai `MEMBERSHIP_CHECK_MINUTES`. Keluar dan masuk kembali
 2. Deploy folder ini sebagai service (Dockerfile sudah tersedia).
 3. Masukkan seluruh environment variable dan gunakan `DATABASE_URL` dari PostgreSQL Railway.
 4. Set `DATABASE_SSL=true` bila koneksi database memerlukannya.
-5. Setelah deploy, buka `/health`, pasang domain tersebut di ServerScript Roblox, lalu kirim kedua panel dengan `/panel`.
+5. Setelah deploy, buka `/health`, pasang domain tersebut di ServerScript Roblox, lalu kirim panel verifikasi dengan `/panel`.
 
 ## Keamanan dan operasi
 
 - Jangan commit `.env`, token Discord, atau API secret.
 - Jangan taruh secret di LocalScript; hanya di ServerScript.
-- Simpan screenshot dan channel ticket sebagai jejak audit.
-- Gunakan tombol **Bukti Valid** sebelum **Sudah Dibayar**. Penolakan mengembalikan saldo yang terkunci.
-- Ticket tidak dihapus otomatis; tombol **Tutup Ticket** mengunci user dan mempertahankan riwayat.
+- Simpan screenshot dan channel ticket eksternal sebagai jejak audit.
+- Jalankan `/acc-claim` dari channel ticket agar tautan sumber pemeriksaan tercatat.
+- Jangan menjalankan `/claim-dibayar` sebelum Robux benar-benar dikirim ke username dan Roblox User ID yang tertera.
 - Backup PostgreSQL secara berkala.

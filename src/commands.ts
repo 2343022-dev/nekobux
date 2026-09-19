@@ -19,8 +19,7 @@ const commands = [
         .setDescription("Panel yang ingin dikirim")
         .setRequired(true)
         .addChoices(
-          { name: "Verifikasi Roblox", value: "verification" },
-          { name: "Saldo & claim", value: "cashback" }
+          { name: "Verifikasi Roblox", value: "verification" }
         )
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
@@ -66,6 +65,35 @@ const commands = [
     .setDescription("Periksa status komunitas terbaru langsung dari Roblox.")
     .addStringOption((option) =>
       option.setName("username").setDescription("Username Roblox").setRequired(true)
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder()
+    .setName("acc-claim")
+    .setDescription("Setujui bukti dan masukkan seluruh saldo user ke antrean pencairan.")
+    .addUserOption((option) =>
+      option.setName("user").setDescription("User Discord pemilik klaim").setRequired(true)
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder()
+    .setName("claim-dibayar")
+    .setDescription("Tandai klaim di list pencairan sebagai sudah dibayar manual.")
+    .addIntegerOption((option) =>
+      option.setName("id").setDescription("ID klaim").setMinValue(1).setRequired(true)
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder()
+    .setName("batal-claim")
+    .setDescription("Batalkan klaim aktif dan kembalikan saldonya.")
+    .addIntegerOption((option) =>
+      option.setName("id").setDescription("ID klaim").setMinValue(1).setRequired(true)
+    )
+    .addStringOption((option) =>
+      option
+        .setName("alasan")
+        .setDescription("Alasan pembatalan")
+        .setMinLength(3)
+        .setMaxLength(300)
+        .setRequired(true)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
 ].map((command) => command.toJSON());

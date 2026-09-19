@@ -24,11 +24,14 @@ export const config = {
   communityChannelId: process.env.COMMUNITY_CHANNEL_ID?.trim() || "",
   ticketCategoryId: required("TICKET_CATEGORY_ID"),
   payoutLogChannelId: process.env.PAYOUT_LOG_CHANNEL_ID?.trim() || "",
+  payoutQueueChannelId:
+    process.env.PAYOUT_QUEUE_CHANNEL_ID?.trim() || "1550788584758448248",
+  failedClaimChannelId:
+    process.env.FAILED_CLAIM_CHANNEL_ID?.trim() || "1550796997148287098",
   robloxGroupId: numberValue("ROBLOX_GROUP_ID", 90169160),
   minimumItemPrice: numberValue("MIN_ITEM_PRICE", 30),
   cashbackPercent: numberValue("CASHBACK_PERCENT", 20),
   communityWaitDays: numberValue("COMMUNITY_WAIT_DAYS", 7),
-  fundsHoldDays: numberValue("FUNDS_HOLD_DAYS", 30),
   membershipCheckMinutes: numberValue("MEMBERSHIP_CHECK_MINUTES", 60),
   apiSecret: required("API_SECRET"),
   port: numberValue("PORT", 3000),

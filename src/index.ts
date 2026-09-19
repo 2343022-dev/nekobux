@@ -6,6 +6,7 @@ import {
 } from "discord.js";
 import type { FastifyInstance } from "fastify";
 import { registerCommands } from "./commands.js";
+import { processClaimQueue } from "./claimQueue.js";
 import { closePool, initDatabase } from "./db.js";
 import { handleInteraction } from "./interactions.js";
 import { startMembershipScheduler } from "./membership.js";
@@ -21,7 +22,7 @@ client.once(Events.ClientReady, async (readyClient) => {
   try {
     await registerCommands();
     api = await startApiServer((purchase) => recordPurchase(client, purchase));
-    scheduler = startMembershipScheduler();
+    scheduler = startMembershipScheduler(() => processClaimQueue(client));
     console.log(`Nekobuxx aktif sebagai ${readyClient.user.tag}.`);
   } catch (error) {
     console.error("Gagal menyiapkan bot:", error);

@@ -1,7 +1,7 @@
 import pg from "pg";
 import { config } from "./config.js";
 import type { BalanceSummary, PurchaseInput, PurchaseRecord } from "./types.js";
-import { addDays, calculateCashback } from "./utils.js";
+import { calculateCashback } from "./utils.js";
 
 const { Pool } = pg;
 
@@ -27,7 +27,19 @@ export interface ClaimRecord {
   amountRobux: number;
   status: string;
   channelId: string | null;
+  queueManaged: boolean;
+  approvedByDiscordId: string | null;
+  paidByDiscordId: string | null;
+  sourceChannelId: string | null;
+  readyChannelId: string | null;
+  readyMessageId: string | null;
+  failureChannelId: string | null;
+  failureMessageId: string | null;
+  failureReason: string | null;
   createdAt: Date;
+  verifiedAt: Date | null;
+  paidAt: Date | null;
+  closedAt: Date | null;
 }
 
 export async function initDatabase(): Promise<void> {
@@ -82,12 +94,36 @@ export async function initDatabase(): Promise<void> {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       verified_at TIMESTAMPTZ,
       paid_at TIMESTAMPTZ,
-      closed_at TIMESTAMPTZ
+      closed_at TIMESTAMPTZ,
+      queue_managed BOOLEAN NOT NULL DEFAULT FALSE,
+      approved_by_discord_id TEXT,
+      paid_by_discord_id TEXT,
+      source_channel_id TEXT,
+      ready_channel_id TEXT,
+      ready_message_id TEXT,
+      failure_channel_id TEXT,
+      failure_message_id TEXT,
+      failure_reason TEXT,
+      failure_notified_at TIMESTAMPTZ
     );
+
+    ALTER TABLE claims ADD COLUMN IF NOT EXISTS queue_managed BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE claims ADD COLUMN IF NOT EXISTS approved_by_discord_id TEXT;
+    ALTER TABLE claims ADD COLUMN IF NOT EXISTS paid_by_discord_id TEXT;
+    ALTER TABLE claims ADD COLUMN IF NOT EXISTS source_channel_id TEXT;
+    ALTER TABLE claims ADD COLUMN IF NOT EXISTS ready_channel_id TEXT;
+    ALTER TABLE claims ADD COLUMN IF NOT EXISTS ready_message_id TEXT;
+    ALTER TABLE claims ADD COLUMN IF NOT EXISTS failure_channel_id TEXT;
+    ALTER TABLE claims ADD COLUMN IF NOT EXISTS failure_message_id TEXT;
+    ALTER TABLE claims ADD COLUMN IF NOT EXISTS failure_reason TEXT;
+    ALTER TABLE claims ADD COLUMN IF NOT EXISTS failure_notified_at TIMESTAMPTZ;
 
     CREATE UNIQUE INDEX IF NOT EXISTS one_active_claim_per_discord
       ON claims (discord_user_id)
       WHERE status IN ('open', 'verified');
+
+    CREATE INDEX IF NOT EXISTS managed_claim_queue_idx
+      ON claims (queue_managed, status);
 
     CREATE TABLE IF NOT EXISTS claim_items (
       claim_id BIGINT NOT NULL REFERENCES claims(id) ON DELETE CASCADE,
@@ -296,7 +332,7 @@ function mapPurchase(row: Record<string, unknown>): PurchaseRecord {
 
 export async function insertPurchase(input: PurchaseInput): Promise<PurchaseRecord | null> {
   const cashback = calculateCashback(input.priceRobux, config.cashbackPercent);
-  const fundsAvailableAt = addDays(input.purchasedAt, config.fundsHoldDays);
+  const fundsAvailableAt = input.purchasedAt;
   const result = await pool.query(
     `INSERT INTO purchases (
        event_id, roblox_user_id, roblox_username, asset_id, asset_name, item_type,
@@ -335,8 +371,7 @@ export async function refreshEligibilityForUser(robloxUserId: number): Promise<n
   const result = await pool.query(
     `UPDATE purchases p
      SET status = CASE
-       WHEN p.funds_available_at <= NOW()
-        AND l.community_member = TRUE
+       WHEN l.community_member = TRUE
         AND l.community_since IS NOT NULL
         AND l.community_since <= NOW() - ($2 * INTERVAL '1 day')
        THEN 'available'
@@ -347,8 +382,7 @@ export async function refreshEligibilityForUser(robloxUserId: number): Promise<n
        AND l.roblox_user_id = p.roblox_user_id
        AND p.status IN ('pending', 'available')
        AND p.status <> CASE
-         WHEN p.funds_available_at <= NOW()
-          AND l.community_member = TRUE
+         WHEN l.community_member = TRUE
           AND l.community_since IS NOT NULL
           AND l.community_since <= NOW() - ($2 * INTERVAL '1 day')
          THEN 'available'
@@ -398,8 +432,190 @@ function mapClaim(row: Record<string, unknown>): ClaimRecord {
     amountRobux: Number(row.amount_robux),
     status: String(row.status),
     channelId: row.channel_id ? String(row.channel_id) : null,
-    createdAt: new Date(String(row.created_at))
+    queueManaged: Boolean(row.queue_managed),
+    approvedByDiscordId: row.approved_by_discord_id
+      ? String(row.approved_by_discord_id)
+      : null,
+    paidByDiscordId: row.paid_by_discord_id ? String(row.paid_by_discord_id) : null,
+    sourceChannelId: row.source_channel_id ? String(row.source_channel_id) : null,
+    readyChannelId: row.ready_channel_id ? String(row.ready_channel_id) : null,
+    readyMessageId: row.ready_message_id ? String(row.ready_message_id) : null,
+    failureChannelId: row.failure_channel_id ? String(row.failure_channel_id) : null,
+    failureMessageId: row.failure_message_id ? String(row.failure_message_id) : null,
+    failureReason: row.failure_reason ? String(row.failure_reason) : null,
+    createdAt: new Date(String(row.created_at)),
+    verifiedAt: row.verified_at ? new Date(String(row.verified_at)) : null,
+    paidAt: row.paid_at ? new Date(String(row.paid_at)) : null,
+    closedAt: row.closed_at ? new Date(String(row.closed_at)) : null
   };
+}
+
+export async function lockUnclaimedPurchases(input: {
+  discordUserId: string;
+  robloxUserId: number;
+  approvedByDiscordId: string;
+  sourceChannelId: string | null;
+}): Promise<{ claim: ClaimRecord; purchases: PurchaseRecord[] }> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const purchaseResult = await client.query(
+      `SELECT * FROM purchases
+       WHERE roblox_user_id = $1 AND status IN ('pending', 'available')
+       ORDER BY purchased_at ASC
+       FOR UPDATE`,
+      [input.robloxUserId]
+    );
+    const purchases = purchaseResult.rows.map(mapPurchase);
+    const amount = purchases.reduce((sum, purchase) => sum + purchase.cashbackRobux, 0);
+    if (amount <= 0) throw new Error("Tidak ada saldo cashback yang belum diklaim.");
+
+    const claimResult = await client.query(
+      `INSERT INTO claims (
+         discord_user_id, roblox_user_id, amount_robux, status,
+         queue_managed, approved_by_discord_id, source_channel_id
+       ) VALUES ($1, $2, $3, 'open', TRUE, $4, $5)
+       RETURNING *`,
+      [
+        input.discordUserId,
+        input.robloxUserId,
+        amount,
+        input.approvedByDiscordId,
+        input.sourceChannelId
+      ]
+    );
+    const claim = mapClaim(claimResult.rows[0]);
+
+    for (const purchase of purchases) {
+      await client.query(
+        "INSERT INTO claim_items (claim_id, purchase_id) VALUES ($1, $2)",
+        [claim.id, purchase.id]
+      );
+    }
+    await client.query(
+      "UPDATE purchases SET status = 'locked' WHERE id = ANY($1::bigint[])",
+      [purchases.map((purchase) => purchase.id)]
+    );
+    await client.query("COMMIT");
+    return { claim, purchases };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    if (error instanceof Error && "code" in error && error.code === "23505") {
+      throw new Error("User ini masih memiliki klaim aktif.");
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function listManagedActiveClaims(claimId?: number): Promise<ClaimRecord[]> {
+  const result = claimId
+    ? await pool.query(
+        `SELECT * FROM claims
+         WHERE queue_managed = TRUE AND id = $1 AND status IN ('open', 'verified')`,
+        [claimId]
+      )
+    : await pool.query(
+        `SELECT * FROM claims
+         WHERE queue_managed = TRUE AND status IN ('open', 'verified')
+         ORDER BY created_at ASC`
+      );
+  return result.rows.map(mapClaim);
+}
+
+export async function listUnnotifiedFailedClaims(): Promise<ClaimRecord[]> {
+  const result = await pool.query(
+    `SELECT * FROM claims
+     WHERE queue_managed = TRUE
+       AND status = 'rejected'
+       AND failure_reason IS NOT NULL
+       AND failure_notified_at IS NULL
+     ORDER BY closed_at ASC`
+  );
+  return result.rows.map(mapClaim);
+}
+
+export async function markManagedClaimReady(claimId: number): Promise<ClaimRecord | null> {
+  const result = await pool.query(
+    `UPDATE claims
+     SET status = 'verified', verified_at = COALESCE(verified_at, NOW())
+     WHERE id = $1 AND queue_managed = TRUE AND status = 'open'
+     RETURNING *`,
+    [claimId]
+  );
+  return result.rows[0] ? mapClaim(result.rows[0]) : null;
+}
+
+export async function saveClaimReadyMessage(
+  claimId: number,
+  channelId: string,
+  messageId: string
+): Promise<void> {
+  await pool.query(
+    `UPDATE claims SET ready_channel_id = $2, ready_message_id = $3
+     WHERE id = $1 AND queue_managed = TRUE`,
+    [claimId, channelId, messageId]
+  );
+}
+
+export async function saveClaimFailureMessage(
+  claimId: number,
+  channelId: string,
+  messageId: string
+): Promise<void> {
+  await pool.query(
+    `UPDATE claims
+     SET failure_channel_id = $2,
+         failure_message_id = $3,
+         failure_notified_at = NOW()
+     WHERE id = $1 AND queue_managed = TRUE`,
+    [claimId, channelId, messageId]
+  );
+}
+
+export async function cancelManagedClaim(
+  claimId: number,
+  reason: string
+): Promise<ClaimRecord | null> {
+  const client = await pool.connect();
+  let cancelled: ClaimRecord | null = null;
+  try {
+    await client.query("BEGIN");
+    const existing = await client.query(
+      `SELECT * FROM claims
+       WHERE id = $1 AND queue_managed = TRUE AND status IN ('open', 'verified')
+       FOR UPDATE`,
+      [claimId]
+    );
+    if (!existing.rows[0]) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+    await client.query(
+      `UPDATE purchases SET status = 'pending'
+       WHERE id IN (SELECT purchase_id FROM claim_items WHERE claim_id = $1)
+         AND status = 'locked'`,
+      [claimId]
+    );
+    const result = await client.query(
+      `UPDATE claims
+       SET status = 'rejected', failure_reason = $2, closed_at = NOW()
+       WHERE id = $1
+       RETURNING *`,
+      [claimId, reason]
+    );
+    cancelled = mapClaim(result.rows[0]);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+  if (!cancelled) return null;
+  await refreshEligibilityForUser(cancelled.robloxUserId);
+  return cancelled;
 }
 
 export async function lockAvailablePurchases(
@@ -496,7 +712,10 @@ export async function rejectClaim(claimId: number): Promise<void> {
   }
 }
 
-export async function markClaimPaid(claimId: number): Promise<void> {
+export async function markClaimPaid(
+  claimId: number,
+  paidByDiscordId?: string
+): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -507,9 +726,13 @@ export async function markClaimPaid(claimId: number): Promise<void> {
       [claimId]
     );
     const result = await client.query(
-      `UPDATE claims SET status = 'paid', paid_at = NOW(), closed_at = NOW()
+      `UPDATE claims
+       SET status = 'paid',
+           paid_at = NOW(),
+           closed_at = NOW(),
+           paid_by_discord_id = COALESCE($2, paid_by_discord_id)
        WHERE id = $1 AND status = 'verified'`,
-      [claimId]
+      [claimId, paidByDiscordId ?? null]
     );
     if ((result.rowCount ?? 0) === 0) {
       throw new Error("Claim harus diverifikasi sebelum ditandai dibayar.");

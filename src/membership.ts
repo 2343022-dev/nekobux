@@ -21,7 +21,9 @@ export async function refreshMembershipByRobloxId(robloxUserId: number): Promise
   return link ? refreshMembership(link) : null;
 }
 
-export function startMembershipScheduler(): NodeJS.Timeout {
+export function startMembershipScheduler(
+  afterRefresh?: () => Promise<void>
+): NodeJS.Timeout {
   let running = false;
   const run = async (): Promise<void> => {
     if (running) return;
@@ -35,6 +37,7 @@ export function startMembershipScheduler(): NodeJS.Timeout {
           console.error(`[community] ${link.robloxUsername}: ${errorMessage(error)}`);
         }
       }
+      if (afterRefresh) await afterRefresh();
     } finally {
       running = false;
     }

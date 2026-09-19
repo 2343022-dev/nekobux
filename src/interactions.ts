@@ -17,6 +17,12 @@ import {
 } from "discord.js";
 import { config } from "./config.js";
 import {
+  approveClaim,
+  cancelClaimByAdmin,
+  completeClaimPayment,
+  processClaimQueue
+} from "./claimQueue.js";
+import {
   getBalance,
   getLinkByDiscord,
   getLinkByRoblox,
@@ -26,7 +32,7 @@ import {
   unlinkDiscord
 } from "./db.js";
 import { refreshMembership } from "./membership.js";
-import { cashbackPanel, verificationPanel } from "./panels.js";
+import { verificationPanel } from "./panels.js";
 import { recordPurchase } from "./purchases.js";
 import {
   getAvatarThumbnail,
@@ -34,7 +40,7 @@ import {
   isCommunityMember,
   resolveRobloxUsername
 } from "./roblox.js";
-import { createClaimTicket, handleClaimAction } from "./tickets.js";
+import { handleClaimAction } from "./tickets.js";
 import { discordTimestamp, errorMessage, randomId } from "./utils.js";
 
 function isAdmin(interaction: Interaction): boolean {
@@ -85,7 +91,7 @@ export async function handleInteraction(interaction: Interaction, client: Client
               new TextInputBuilder()
                 .setCustomId("username")
                 .setLabel("Username Roblox (bukan display name)")
-                .setPlaceholder("Contoh: nekobux")
+                .setPlaceholder("Contoh: Builderman")
                 .setMinLength(3)
                 .setMaxLength(20)
                 .setStyle(TextInputStyle.Short)
@@ -108,7 +114,10 @@ export async function handleInteraction(interaction: Interaction, client: Client
         return;
       }
       if (interaction.customId === "cashback:claim") {
-        await createClaimTicket(interaction);
+        await interaction.reply({
+          content: "Gunakan panel ticket claim yang tersedia di server. Ticket tidak lagi dibuat oleh bot ini.",
+          flags: MessageFlags.Ephemeral
+        });
         return;
       }
       if (interaction.customId.startsWith("claim:")) {
@@ -289,9 +298,23 @@ async function handleCommand(
 
   if (interaction.commandName === "panel") {
     if (!interaction.channel?.isSendable()) throw new Error("Channel ini tidak dapat dikirimi pesan.");
-    const kind = interaction.options.getString("jenis", true);
-    await interaction.channel.send(kind === "verification" ? verificationPanel() : cashbackPanel());
+    await interaction.channel.send(verificationPanel());
     await interaction.reply({ content: "Panel berhasil dikirim.", flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  if (interaction.commandName === "acc-claim") {
+    await approveClaim(interaction, client);
+    return;
+  }
+
+  if (interaction.commandName === "claim-dibayar") {
+    await completeClaimPayment(interaction, client);
+    return;
+  }
+
+  if (interaction.commandName === "batal-claim") {
+    await cancelClaimByAdmin(interaction, client);
     return;
   }
 
@@ -348,6 +371,7 @@ async function handleCommand(
       return;
     }
     const link = await setCommunityAge(user.id, days);
+    if (link) await processClaimQueue(client);
     await interaction.editReply(
       link
         ? `Usia komunitas @${user.name} dikoreksi menjadi **${days} hari**.`
@@ -370,6 +394,7 @@ async function handleCommand(
       return;
     }
     const link = await refreshMembership(original);
+    await processClaimQueue(client);
     const readyAt = link.communitySince
       ? new Date(link.communitySince.getTime() + config.communityWaitDays * 86_400_000)
       : null;
