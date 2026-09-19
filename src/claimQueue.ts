@@ -4,6 +4,7 @@ import {
   EmbedBuilder,
   MessageFlags
 } from "discord.js";
+import { sendAdminAuditLog } from "./adminAudit.js";
 import { config } from "./config.js";
 import {
   cancelManagedClaim,
@@ -252,6 +253,36 @@ export async function approveClaim(
         `⏳ Klaim menunggu masa Community **${config.communityWaitDays} hari**.`,
         `📅 Akan siap pada: ${discordTimestamp(readyAt, "F")}`
           ].join("\n");
+  await sendAdminAuditLog(client, {
+    title: "✅ Klaim Dimasukkan ke Antrean",
+    command: "acc-claim",
+    adminDiscordId: interaction.user.id,
+    color: 0xd8b56f,
+    fields: [
+      { name: "ID Klaim", value: `#${claim.id}`, inline: true },
+      { name: "Status", value: updated.status, inline: true },
+      {
+        name: "User Discord",
+        value: `<@${target.id}> (\`${target.id}\`)`
+      },
+      {
+        name: "Akun Roblox",
+        value: `@${link.robloxUsername} (\`${link.robloxUserId}\`)`
+      },
+      {
+        name: "Saldo Dikunci",
+        value: `${claim.amountRobux.toLocaleString("id-ID")} Robux`,
+        inline: true
+      },
+      {
+        name: "Jumlah Pembelian",
+        value: `${purchases.length} item`,
+        inline: true
+      },
+      { name: "Sumber", value: `<#${interaction.channelId}>` }
+    ]
+  });
+
   await interaction.editReply(
     [
       `✅ **Klaim #${claim.id} masuk antrean.**`,
@@ -356,6 +387,35 @@ export async function cancelClaimByAdmin(
     return;
   }
   await processClaimQueue(client);
+  const link = await getLinkByDiscord(cancelled.discordUserId);
+
+  await sendAdminAuditLog(client, {
+    title: "❌ Klaim Dibatalkan",
+    command: "batal-claim",
+    adminDiscordId: interaction.user.id,
+    color: 0xc85f65,
+    fields: [
+      { name: "ID Klaim", value: `#${cancelled.id}`, inline: true },
+      {
+        name: "Saldo Dikembalikan",
+        value: `${cancelled.amountRobux.toLocaleString("id-ID")} Robux`,
+        inline: true
+      },
+      {
+        name: "User Discord",
+        value: `<@${cancelled.discordUserId}> (\`${cancelled.discordUserId}\`)`
+      },
+      {
+        name: "Akun Roblox",
+        value:
+          link?.robloxUserId === cancelled.robloxUserId
+            ? `@${link.robloxUsername} (\`${cancelled.robloxUserId}\`)`
+            : `Roblox ID \`${cancelled.robloxUserId}\``
+      },
+      { name: "Alasan", value: reason }
+    ]
+  });
+
   await interaction.editReply(
     `❌ Klaim **#${claimId}** dibatalkan. Saldo dikembalikan dan laporan dikirim ke <#${config.failedClaimChannelId}>.`
   );

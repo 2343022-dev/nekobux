@@ -16,6 +16,7 @@ import {
   TextInputStyle,
   type Interaction
 } from "discord.js";
+import { sendAdminAuditLog } from "./adminAudit.js";
 import { config } from "./config.js";
 import { renderBalanceCard } from "./balanceCard.js";
 import {
@@ -487,6 +488,31 @@ async function handleCommand(
     return;
   }
 
+  if (interaction.commandName === "test-audit-log") {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    const sent = await sendAdminAuditLog(client, {
+      title: "🧪 Pengujian Audit Log",
+      command: "test-audit-log",
+      adminDiscordId: interaction.user.id,
+      color: 0x8f7f84,
+      fields: [
+        {
+          name: "Hasil",
+          value: "Channel audit dapat menerima pesan dari bot."
+        },
+        { name: "Sumber", value: `<#${interaction.channelId}>` }
+      ]
+    });
+
+    await interaction.editReply(
+      sent
+        ? `✅ Audit log berhasil dikirim ke <#${config.payoutLogChannelId}>.`
+        : "❌ Audit log gagal dikirim. Periksa PAYOUT_LOG_CHANNEL_ID dan izin bot."
+    );
+    return;
+  }
+
   if (interaction.commandName === "admin-riwayat") {
     await interaction.deferReply({
       flags: MessageFlags.Ephemeral
@@ -533,11 +559,31 @@ async function handleCommand(
 
   if (interaction.commandName === "admin-unlink") {
     const user = interaction.options.getUser("user", true);
+    const existing = await getLinkByDiscord(user.id);
     const removed = await unlinkDiscord(user.id);
     if (interaction.guild) {
       const member = await interaction.guild.members.fetch(user.id).catch(() => null);
       if (member) await member.roles.remove(config.verifiedRoleId).catch(() => undefined);
     }
+    if (removed && existing) {
+      await sendAdminAuditLog(client, {
+        title: "🔗 Hubungan Akun Dilepas",
+        command: "admin-unlink",
+        adminDiscordId: interaction.user.id,
+        color: 0xc85f65,
+        fields: [
+          {
+            name: "User Discord",
+            value: `<@${user.id}> (\`${user.id}\`)`
+          },
+          {
+            name: "Akun Roblox Sebelumnya",
+            value: `@${existing.robloxUsername} (\`${existing.robloxUserId}\`)`
+          }
+        ]
+      });
+    }
+
     await interaction.reply({
       content: removed ? `Hubungan akun ${user} dilepas.` : `${user} belum memiliki akun terhubung.`,
       flags: MessageFlags.Ephemeral
@@ -563,6 +609,47 @@ async function handleCommand(
       priceRobux: interaction.options.getInteger("harga", true),
       purchasedAt: new Date()
     });
+    if (!result.duplicate && result.purchase) {
+      const assetId = interaction.options.getInteger("item-id", true);
+      const assetName = interaction.options.getString("item-name", true);
+      const priceRobux = interaction.options.getInteger("harga", true);
+
+      await sendAdminAuditLog(client, {
+        title: "🧾 Pembelian Ditambahkan Manual",
+        command: "admin-add-purchase",
+        adminDiscordId: interaction.user.id,
+        color: 0x6687a3,
+        fields: [
+          {
+            name: "ID Transaksi",
+            value: `#${result.purchase.id}`,
+            inline: true
+          },
+          {
+            name: "Cashback",
+            value: `${result.purchase.cashbackRobux.toLocaleString("id-ID")} Robux`,
+            inline: true
+          },
+          {
+            name: "Akun Roblox",
+            value: `@${user.name} (\`${user.id}\`)`
+          },
+          {
+            name: "Item",
+            value: `${assetName} (ID \`${assetId}\`)`
+          },
+          {
+            name: "Harga",
+            value: `${priceRobux.toLocaleString("id-ID")} Robux`
+          },
+          {
+            name: "Event ID",
+            value: `\`${result.purchase.eventId}\``
+          }
+        ]
+      });
+    }
+
     await interaction.editReply(
       result.duplicate ? "Transaksi duplikat." : `Pembelian @${user.name} berhasil ditambahkan.`
     );
@@ -614,6 +701,38 @@ async function handleCommand(
     }
     const link = await setCommunityAge(user.id, days);
     if (link) await processClaimQueue(client);
+
+    if (link) {
+      await sendAdminAuditLog(client, {
+        title: "🕒 Usia Community Dikoreksi",
+        command: "admin-community-age",
+        adminDiscordId: interaction.user.id,
+        color: 0x9a83b8,
+        fields: [
+          {
+            name: "User Discord",
+            value: `<@${link.discordUserId}> (\`${link.discordUserId}\`)`
+          },
+          {
+            name: "Akun Roblox",
+            value: `@${link.robloxUsername} (\`${link.robloxUserId}\`)`
+          },
+          {
+            name: "Usia yang Ditetapkan",
+            value: `${days} hari`,
+            inline: true
+          },
+          {
+            name: "Tanggal Mulai Hasil Koreksi",
+            value: link.communitySince
+              ? discordTimestamp(link.communitySince, "F")
+              : "Tidak tercatat",
+            inline: true
+          }
+        ]
+      });
+    }
+
     await interaction.editReply(
       link
         ? `Usia komunitas @${user.name} dikoreksi menjadi **${days} hari**.`

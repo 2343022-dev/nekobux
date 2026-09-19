@@ -14,6 +14,10 @@ const commands = [
     .setName("riwayat")
     .setDescription("Lihat riwayat pembelian dan cashback Roblox kamu."),
   new SlashCommandBuilder()
+    .setName("test-audit-log")
+    .setDescription("Menguji pengiriman audit log admin.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder()
     .setName("panel")
     .setDescription("Kirim panel bot ke channel ini.")
     .addStringOption((option) =>
