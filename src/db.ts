@@ -169,7 +169,7 @@ export async function updateCommunityStatus(
 ): Promise<RobloxLink> {
   let communitySince = link.communitySince;
   if (!isMember) communitySince = null;
-  if (isMember && !link.communityMember) communitySince = new Date();
+  if (isMember && (!link.communityMember || !communitySince)) communitySince = new Date();
 
   const result = await pool.query(
     `UPDATE roblox_links
@@ -268,15 +268,26 @@ export async function savePurchaseMessage(
 export async function refreshEligibilityForUser(robloxUserId: number): Promise<number> {
   const result = await pool.query(
     `UPDATE purchases p
-     SET status = 'available'
+     SET status = CASE
+       WHEN p.funds_available_at <= NOW()
+        AND l.community_member = TRUE
+        AND l.community_since IS NOT NULL
+        AND l.community_since <= NOW() - ($2 * INTERVAL '1 day')
+       THEN 'available'
+       ELSE 'pending'
+     END
      FROM roblox_links l
      WHERE p.roblox_user_id = $1
        AND l.roblox_user_id = p.roblox_user_id
-       AND p.status = 'pending'
-       AND p.funds_available_at <= NOW()
-       AND l.community_member = TRUE
-       AND l.community_since IS NOT NULL
-       AND l.community_since <= NOW() - ($2 * INTERVAL '1 day')`,
+       AND p.status IN ('pending', 'available')
+       AND p.status <> CASE
+         WHEN p.funds_available_at <= NOW()
+          AND l.community_member = TRUE
+          AND l.community_since IS NOT NULL
+          AND l.community_since <= NOW() - ($2 * INTERVAL '1 day')
+         THEN 'available'
+         ELSE 'pending'
+       END`,
     [robloxUserId, config.communityWaitDays]
   );
   return result.rowCount ?? 0;

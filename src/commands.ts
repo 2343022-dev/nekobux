@@ -60,6 +60,13 @@ const commands = [
     .addIntegerOption((option) =>
       option.setName("hari").setDescription("Sudah bergabung berapa hari").setMinValue(0).setRequired(true)
     )
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder()
+    .setName("admin-community-check")
+    .setDescription("Periksa status komunitas terbaru langsung dari Roblox.")
+    .addStringOption((option) =>
+      option.setName("username").setDescription("Username Roblox").setRequired(true)
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
 ].map((command) => command.toJSON());
 

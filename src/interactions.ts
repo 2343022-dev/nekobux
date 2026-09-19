@@ -46,6 +46,21 @@ function isAdmin(interaction: Interaction): boolean {
   );
 }
 
+function communityChannelRow(): ActionRowBuilder<ButtonBuilder>[] {
+  if (!config.communityChannelId) return [];
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setLabel("Buka Map & Community")
+        .setEmoji("🌸")
+        .setStyle(ButtonStyle.Link)
+        .setURL(
+          `https://discord.com/channels/${config.guildId}/${config.communityChannelId}`
+        )
+    )
+  ];
+}
+
 export async function handleInteraction(interaction: Interaction, client: Client): Promise<void> {
   try {
     if (interaction.isChatInputCommand()) {
@@ -169,7 +184,7 @@ async function confirmLink(interaction: ButtonInteraction, robloxUserId: number)
   }
   const user = await getRobloxUser(robloxUserId);
   const member = await isCommunityMember(user.id, config.robloxGroupId);
-  await createLink({
+  const link = await createLink({
     discordUserId: interaction.user.id,
     robloxUserId: user.id,
     robloxUsername: user.name,
@@ -179,10 +194,31 @@ async function confirmLink(interaction: ButtonInteraction, robloxUserId: number)
   const guildMember = await interaction.guild.members.fetch(interaction.user.id);
   await guildMember.roles.add(config.verifiedRoleId, "Roblox account linked");
   await refreshEligibilityForUser(user.id);
+  const guide = config.communityChannelId
+    ? `<#${config.communityChannelId}>`
+    : "channel panduan map dan komunitas";
+  const membershipStatus = link.communityMember && link.communitySince
+    ? [
+        "✅ **Status komunitas:** terdeteksi sebagai anggota.",
+        `🕒 Pertama terdeteksi ${discordTimestamp(link.communitySince, "F")}.`,
+        `⏳ Syarat **${config.communityWaitDays} hari** mulai dihitung dari waktu tersebut.`
+      ].join("\n")
+    : [
+        "❌ **Status komunitas:** belum terdeteksi sebagai anggota.",
+        `⏸️ Hitungan **${config.communityWaitDays} hari belum dimulai**.`,
+        `Bot akan memeriksa ulang setiap ${config.membershipCheckMinutes} menit setelah kamu bergabung.`
+      ].join("\n");
   await interaction.editReply({
-    content: `✅ Berhasil terhubung ke **${user.displayName} (@${user.name})**. Channel komunitas sekarang terbuka.${member ? " Masa 14 hari komunitas mulai tercatat." : " Kamu belum terdeteksi di komunitas Roblox."}`,
+    content: [
+      `✅ Berhasil terhubung ke **${user.displayName} (@${user.name})**.`,
+      `📍 Buka ${guide} untuk link map dan Community Roblox.`,
+      "",
+      membershipStatus,
+      "",
+      `Pemeriksaan menggunakan Community ID **${config.robloxGroupId}**.`
+    ].join("\n"),
     embeds: [],
-    components: []
+    components: communityChannelRow()
   });
 }
 
@@ -202,10 +238,10 @@ async function showBalance(
     ? new Date(link.communitySince.getTime() + config.communityWaitDays * 86_400_000)
     : null;
   const communityStatus = !link.communityMember
-    ? "Belum bergabung"
+    ? `Belum terdeteksi — hitungan ${config.communityWaitDays} hari belum dimulai`
     : readyAt && readyAt > new Date()
-      ? `Menunggu sampai ${discordTimestamp(readyAt, "R")}`
-      : "Memenuhi syarat";
+      ? `Terdeteksi ${discordTimestamp(link.communitySince!, "F")}\nMemenuhi syarat ${discordTimestamp(readyAt, "R")}`
+      : `Memenuhi syarat\nTerdeteksi ${discordTimestamp(link.communitySince!, "F")}`;
   const embed = new EmbedBuilder()
     .setColor(0x6f9f82)
     .setTitle(`Saldo @${link.robloxUsername}`)
@@ -215,7 +251,7 @@ async function showBalance(
       { name: "Dalam claim", value: `**${balance.locked} R$**`, inline: true },
       { name: "Sudah dibayar", value: `**${balance.paid} R$**`, inline: true },
       { name: "Total belanja", value: `**${balance.totalSpent} R$**`, inline: true },
-      { name: "Komunitas", value: communityStatus, inline: true }
+      { name: "Komunitas", value: communityStatus, inline: false }
     )
     .setFooter({ text: `Payout hanya ke Roblox ID ${link.robloxUserId}` });
   await interaction.editReply({ embeds: [embed] });
@@ -299,6 +335,36 @@ async function handleCommand(
       link
         ? `Usia komunitas @${user.name} dikoreksi menjadi **${days} hari**.`
         : `@${user.name} belum terhubung ke Discord.`
+    );
+    return;
+  }
+
+  if (interaction.commandName === "admin-community-check") {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    const username = interaction.options.getString("username", true);
+    const user = await resolveRobloxUsername(username);
+    if (!user) {
+      await interaction.editReply("Username Roblox tidak ditemukan.");
+      return;
+    }
+    const original = await getLinkByRoblox(user.id);
+    if (!original) {
+      await interaction.editReply(`@${user.name} belum terhubung ke akun Discord.`);
+      return;
+    }
+    const link = await refreshMembership(original);
+    const readyAt = link.communitySince
+      ? new Date(link.communitySince.getTime() + config.communityWaitDays * 86_400_000)
+      : null;
+    await interaction.editReply(
+      [
+        `**Pemeriksaan Community @${link.robloxUsername}**`,
+        `Community ID: **${config.robloxGroupId}**`,
+        `Status API Roblox: **${link.communityMember ? "ANGGOTA" : "BUKAN ANGGOTA"}**`,
+        `Pertama terdeteksi: ${link.communitySince ? discordTimestamp(link.communitySince, "F") : "belum tercatat"}`,
+        `Syarat: **${config.communityWaitDays} hari**`,
+        `Memenuhi syarat: ${readyAt ? discordTimestamp(readyAt, "F") : "belum dimulai"}`
+      ].join("\n")
     );
   }
 }
