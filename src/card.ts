@@ -90,7 +90,7 @@ function statBlock(input: {
   return `
     <text
       x="${input.x}"
-      y="490"
+      y="490" text-anchor="middle"
       class="statLabel"
     >
       ${escapeXml(input.label)}
@@ -98,7 +98,7 @@ function statBlock(input: {
 
     <text
       x="${input.x}"
-      y="535"
+      y="535" text-anchor="middle"
       class="${input.accent ? "statValue pink" : "statValue"}"
     >
       ${escapeXml(input.value)}
@@ -262,9 +262,9 @@ export async function renderPurchaseCard(input: {
       }
 
       .eyebrow {
-        font-size: 14px;
+        font-size: 16px;
         font-weight: 700;
-        letter-spacing: 3px;
+        letter-spacing: 2px;
         fill: #6b6568;
       }
 
@@ -289,72 +289,72 @@ export async function renderPurchaseCard(input: {
       }
 
       .small {
-        font-size: 15px;
+        font-size: 17px;
         font-weight: 700;
         fill: #625d60;
       }
 
       .micro {
-        font-size: 13px;
+        font-size: 15px;
         font-weight: 700;
         fill: #756f72;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.2px;
       }
 
       .leftSmall {
-        font-size: 15px;
+        font-size: 17px;
         font-weight: 700;
         fill: #eee8e6;
       }
 
       .leftMicro {
-        font-size: 13px;
+        font-size: 14px;
         font-weight: 700;
         fill: #d9d1d2;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.2px;
       }
 
       .buyer {
-        font-size: 21px;
+        font-size: 24px;
         font-weight: 700;
         fill: #fffaf8;
       }
 
       .cashLabel {
-        font-size: 17px;
+        font-size: 20px;
         font-weight: 700;
-        letter-spacing: 4px;
+        letter-spacing: 2.4px;
         fill: #6d666a;
       }
 
       .cashValue {
-        font-size: 91px;
+        font-size: 96px;
         font-weight: 700;
         fill: url(#pinkMetal);
         letter-spacing: -4px;
       }
 
       .itemName {
-        font-size: 28px;
+        font-size: 31px;
         font-weight: 700;
         fill: #4e494c;
       }
 
       .itemMeta {
-        font-size: 16px;
+        font-size: 18px;
         font-weight: 700;
         fill: #756e72;
       }
 
       .statLabel {
-        font-size: 15px;
+        font-size: 17px;
         font-weight: 700;
-        letter-spacing: 1.2px;
+        letter-spacing: 0.6px;
         fill: #766f72;
       }
 
       .statValue {
-        font-size: 34px;
+        font-size: 36px;
         font-weight: 700;
         fill: #4e494c;
       }
@@ -364,7 +364,7 @@ export async function renderPurchaseCard(input: {
       }
 
       .placeholder {
-        font-size: 16px;
+        font-size: 18px;
         font-weight: 700;
         fill: #776f72;
       }
@@ -705,7 +705,7 @@ export async function renderPurchaseCard(input: {
       y="344"
       class="itemName"
     >
-      ${escapeXml(truncate(purchase.assetName, 35))}
+      ${escapeXml(truncate(purchase.assetName, 32))}
     </text>
 
     <text
@@ -743,7 +743,7 @@ export async function renderPurchaseCard(input: {
     />
 
     ${statBlock({
-      x: 495,
+      x: 590,
       label: "HARGA ITEM",
       value: `${purchase.priceRobux.toLocaleString("id-ID")} R$`
     })}
@@ -758,7 +758,7 @@ export async function renderPurchaseCard(input: {
     />
 
     ${statBlock({
-      x: 724,
+      x: 790,
       label: "TOTAL BELANJA",
       value: `${balance.totalSpent.toLocaleString("id-ID")} R$`
     })}
@@ -773,7 +773,7 @@ export async function renderPurchaseCard(input: {
     />
 
     ${statBlock({
-      x: 953,
+      x: 1020,
       label: "SALDO CASHBACK",
       value: `+${balance.totalCashback.toLocaleString("id-ID")} R$`,
       accent: true
