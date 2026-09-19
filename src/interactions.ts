@@ -1,5 +1,6 @@
 import {
   ActionRowBuilder,
+  AttachmentBuilder,
   ButtonInteraction,
   ButtonBuilder,
   ButtonStyle,
@@ -16,6 +17,7 @@ import {
   type Interaction
 } from "discord.js";
 import { config } from "./config.js";
+import { renderBalanceCard } from "./balanceCard.js";
 import {
   approveClaim,
   cancelClaimByAdmin,
@@ -281,36 +283,119 @@ async function confirmLink(interaction: ButtonInteraction, robloxUserId: number)
 async function showBalance(
   interaction: ButtonInteraction | ChatInputCommandInteraction
 ): Promise<void> {
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  const original = await getLinkByDiscord(interaction.user.id);
+  await interaction.deferReply({
+    flags: MessageFlags.Ephemeral
+  });
+
+  const original = await getLinkByDiscord(
+    interaction.user.id
+  );
+
   if (!original) {
-    await interaction.editReply("Hubungkan akun Roblox kamu terlebih dahulu.");
+    await interaction.editReply(
+      "Hubungkan akun Roblox kamu terlebih dahulu."
+    );
     return;
   }
+
   const link = await refreshMembership(original);
-  await refreshEligibilityForUser(link.robloxUserId);
-  const balance = await getBalance(link.robloxUserId);
+
+  await refreshEligibilityForUser(
+    link.robloxUserId
+  );
+
+  const balance = await getBalance(
+    link.robloxUserId
+  );
+
   const readyAt = link.communitySince
-    ? new Date(link.communitySince.getTime() + config.communityWaitDays * 86_400_000)
+    ? new Date(
+        link.communitySince.getTime() +
+        config.communityWaitDays * 86_400_000
+      )
     : null;
-  const communityStatus = !link.communityMember
-    ? `Belum terdeteksi — hitungan ${config.communityWaitDays} hari belum dimulai`
-    : readyAt && readyAt > new Date()
-      ? `Terdeteksi ${discordTimestamp(link.communitySince!, "F")}\nMemenuhi syarat ${discordTimestamp(readyAt, "R")}`
-      : `Memenuhi syarat\nTerdeteksi ${discordTimestamp(link.communitySince!, "F")}`;
-  const embed = new EmbedBuilder()
-    .setColor(0x6f9f82)
-    .setTitle(`Saldo @${link.robloxUsername}`)
-    .addFields(
-      { name: "Bisa dicairkan", value: `**${balance.available} R$**`, inline: true },
-      { name: "Pending", value: `**${balance.pending} R$**`, inline: true },
-      { name: "Dalam claim", value: `**${balance.locked} R$**`, inline: true },
-      { name: "Sudah dibayar", value: `**${balance.paid} R$**`, inline: true },
-      { name: "Total belanja", value: `**${balance.totalSpent} R$**`, inline: true },
-      { name: "Komunitas", value: communityStatus, inline: false }
-    )
-    .setFooter({ text: `Payout hanya ke Roblox ID ${link.robloxUserId}` });
-  await interaction.editReply({ embeds: [embed] });
+
+  const avatarUrl = await getAvatarThumbnail(
+    link.robloxUserId
+  ).catch(() => null);
+
+  const card = await renderBalanceCard({
+    link,
+    balance,
+    avatarUrl,
+    readyAt
+  });
+
+  const isReady = Boolean(
+    link.communityMember &&
+    readyAt &&
+    readyAt.getTime() <= Date.now()
+  );
+
+  const statusText = !link.communityMember
+    ? `Belum bergabung Community. Masa tunggu **${config.communityWaitDays} hari** belum dimulai.`
+    : !isReady
+      ? `Masa tunggu masih berjalan. Klaim terbuka ${discordTimestamp(readyAt!, "F")}.`
+      : balance.available > 0
+        ? `Saldo **${balance.available.toLocaleString("id-ID")} Robux** sudah siap diajukan melalui ticket.`
+        : "Syarat Community sudah terpenuhi, tetapi belum ada saldo baru yang siap diklaim.";
+
+  const row =
+    new ActionRowBuilder<ButtonBuilder>()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(
+            `history:${link.robloxUserId}:0`
+          )
+          .setLabel("Lihat Riwayat")
+          .setStyle(ButtonStyle.Secondary)
+      );
+
+  if (isReady) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setLabel("Buka Channel Claim")
+        .setStyle(ButtonStyle.Link)
+        .setURL(
+          `https://discord.com/channels/${config.guildId}/${config.claimChannelId}`
+        )
+    );
+  } else if (!link.communityMember) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setLabel("Masuk Community")
+        .setStyle(ButtonStyle.Link)
+        .setURL(
+          `https://www.roblox.com/communities/${config.robloxGroupId}`
+        )
+    );
+  } else if (config.communityChannelId) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setLabel("Panduan Cashback")
+        .setStyle(ButtonStyle.Link)
+        .setURL(
+          `https://discord.com/channels/${config.guildId}/${config.communityChannelId}`
+        )
+    );
+  }
+
+  await interaction.editReply({
+    content: statusText,
+    files: [
+      new AttachmentBuilder(
+        card,
+        {
+          name:
+            `saldo-${link.robloxUserId}.png`
+        }
+      )
+    ],
+    components: [row],
+    allowedMentions: {
+      parse: []
+    }
+  });
 }
 
 async function showHistoryPage(

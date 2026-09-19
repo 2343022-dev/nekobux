@@ -121,13 +121,11 @@ export async function buildPurchaseHistoryView(
     new ButtonBuilder()
       .setCustomId(`history:${link.robloxUserId}:${history.page - 1}`)
       .setLabel("Sebelumnya")
-      .setEmoji("◀️")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(history.page <= 0),
     new ButtonBuilder()
       .setCustomId(`history:${link.robloxUserId}:${history.page + 1}`)
       .setLabel("Berikutnya")
-      .setEmoji("▶️")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(history.page >= history.totalPages - 1)
   );
