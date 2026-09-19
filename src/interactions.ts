@@ -206,8 +206,12 @@ async function confirmLink(interaction: ButtonInteraction, robloxUserId: number)
         "⚠️ **Status Community Roblox:** ✅ **SUDAH BERGABUNG!**",
         `🕒 Pertama terdeteksi: ${discordTimestamp(link.communitySince, "F")}`,
         readyAt && readyAt > new Date()
-          ? `⏳ Memenuhi syarat ${discordTimestamp(readyAt, "R")}`
-          : `🎉 Syarat **${config.communityWaitDays} hari** sudah terpenuhi.`
+          ? [
+              "⏳ **Belum bisa klaim cashback.**",
+              `Akunmu masih menjalani masa tunggu **${config.communityWaitDays} hari** sejak pertama terdeteksi bergabung.`,
+              `📅 **Klaim akan terbuka pada:** ${discordTimestamp(readyAt, "F")}`
+            ].join("\n")
+          : `✅ Masa tunggu **${config.communityWaitDays} hari** selesai. Cashback sekarang **sudah dapat diklaim**.`
       ].join("\n")
     : [
         "⚠️ **Status Community Roblox:** ❌ **BELUM BERGABUNG!**",
