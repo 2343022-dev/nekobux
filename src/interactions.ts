@@ -17,11 +17,11 @@ import {
 } from "discord.js";
 import { config } from "./config.js";
 import {
-  createLink,
   getBalance,
   getLinkByDiscord,
   getLinkByRoblox,
   refreshEligibilityForUser,
+  replaceLink,
   setCommunityAge,
   unlinkDiscord
 } from "./db.js";
@@ -122,21 +122,15 @@ export async function handleInteraction(interaction: Interaction, client: Client
 
 async function previewLink(interaction: ModalSubmitInteraction): Promise<void> {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  const existing = await getLinkByDiscord(interaction.user.id);
-  if (existing) {
-    await interaction.editReply(
-      `Discord kamu sudah terhubung ke **@${existing.robloxUsername}** (ID ${existing.robloxUserId}). Hubungi admin untuk menggantinya.`
-    );
-    return;
-  }
   const username = interaction.fields.getTextInputValue("username").trim();
   const user = await resolveRobloxUsername(username);
   if (!user) {
     await interaction.editReply("Username Roblox tidak ditemukan. Pastikan memakai username, bukan display name.");
     return;
   }
+  const existing = await getLinkByDiscord(interaction.user.id);
   const linked = await getLinkByRoblox(user.id);
-  if (linked) {
+  if (linked && linked.discordUserId !== interaction.user.id) {
     await interaction.editReply("Akun Roblox ini sudah terhubung ke akun Discord lain.");
     return;
   }
@@ -145,13 +139,20 @@ async function previewLink(interaction: ModalSubmitInteraction): Promise<void> {
     .setColor(0xc98b8e)
     .setTitle("Apakah akun ini benar?")
     .setDescription(
-      `**${user.displayName}** (@${user.name})\nRoblox User ID: **${user.id}**\n\nSaldo dan payout akan terkunci ke akun ini.`
+      [
+        `**${user.displayName}** (@${user.name})`,
+        `Roblox User ID: **${user.id}**`,
+        "",
+        existing && existing.robloxUserId !== user.id
+          ? `Akun saat ini **@${existing.robloxUsername}** akan diganti. Penggantian mandiri hanya diizinkan jika akun lama belum memiliki transaksi atau claim.`
+          : "Saldo dan payout akan terkunci ke akun ini."
+      ].join("\n")
     )
     .setThumbnail(avatar);
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`verify:confirm:${user.id}`)
-      .setLabel("Ya, Hubungkan")
+      .setLabel(existing && existing.robloxUserId !== user.id ? "Ya, Ganti Akun" : "Ya, Hubungkan")
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
       .setCustomId("verify:cancel")
@@ -165,16 +166,8 @@ async function confirmLink(interaction: ButtonInteraction, robloxUserId: number)
   await interaction.deferUpdate();
   if (!interaction.guild) throw new Error("Verifikasi hanya dapat dilakukan di server.");
   const existingDiscord = await getLinkByDiscord(interaction.user.id);
-  if (existingDiscord) {
-    await interaction.editReply({
-      content: `Discord kamu sudah terhubung ke @${existingDiscord.robloxUsername}.`,
-      embeds: [],
-      components: []
-    });
-    return;
-  }
   const existingRoblox = await getLinkByRoblox(robloxUserId);
-  if (existingRoblox) {
+  if (existingRoblox && existingRoblox.discordUserId !== interaction.user.id) {
     await interaction.editReply({
       content: "Akun Roblox ini sudah terhubung ke Discord lain.",
       embeds: [],
@@ -184,7 +177,7 @@ async function confirmLink(interaction: ButtonInteraction, robloxUserId: number)
   }
   const user = await getRobloxUser(robloxUserId);
   const member = await isCommunityMember(user.id, config.robloxGroupId);
-  const link = await createLink({
+  const link = await replaceLink({
     discordUserId: interaction.user.id,
     robloxUserId: user.id,
     robloxUsername: user.name,
@@ -210,7 +203,9 @@ async function confirmLink(interaction: ButtonInteraction, robloxUserId: number)
       ].join("\n");
   await interaction.editReply({
     content: [
-      `✅ Berhasil terhubung ke **${user.displayName} (@${user.name})**.`,
+      existingDiscord && existingDiscord.robloxUserId !== user.id
+        ? `✅ Akun Roblox berhasil diganti dari **@${existingDiscord.robloxUsername}** ke **${user.displayName} (@${user.name})**.`
+        : `✅ Berhasil terhubung ke **${user.displayName} (@${user.name})**.`,
       `📍 Buka ${guide} untuk link map dan Community Roblox.`,
       "",
       membershipStatus,

@@ -156,6 +156,72 @@ export async function createLink(input: {
   return mapLink(result.rows[0]);
 }
 
+export async function replaceLink(input: {
+  discordUserId: string;
+  robloxUserId: number;
+  robloxUsername: string;
+  robloxDisplayName: string;
+  communityMember: boolean;
+}): Promise<RobloxLink> {
+  const existing = await getLinkByDiscord(input.discordUserId);
+  if (!existing) return createLink(input);
+
+  const isSameAccount = existing.robloxUserId === input.robloxUserId;
+  const communitySince = input.communityMember
+    ? isSameAccount
+      ? existing.communitySince ?? new Date()
+      : new Date()
+    : null;
+
+  try {
+    const result = await pool.query(
+      `UPDATE roblox_links
+       SET roblox_user_id = $2,
+           roblox_username = $3,
+           roblox_display_name = $4,
+           community_member = $5,
+           community_since = $6,
+           community_last_checked_at = NOW(),
+           updated_at = NOW()
+       WHERE discord_user_id = $1
+         AND (
+           roblox_user_id = $2
+           OR (
+             NOT EXISTS (
+               SELECT 1 FROM purchases
+               WHERE roblox_user_id = $7 AND status <> 'rejected'
+             )
+             AND NOT EXISTS (
+               SELECT 1 FROM claims
+               WHERE discord_user_id = $1 AND status IN ('open', 'verified')
+             )
+           )
+         )
+       RETURNING *`,
+      [
+        input.discordUserId,
+        input.robloxUserId,
+        input.robloxUsername,
+        input.robloxDisplayName,
+        input.communityMember,
+        communitySince,
+        existing.robloxUserId
+      ]
+    );
+    if (!result.rows[0]) {
+      throw new Error(
+        "Akun Roblox lama sudah memiliki transaksi atau claim. Hubungi admin untuk menggantinya."
+      );
+    }
+    return mapLink(result.rows[0]);
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "23505") {
+      throw new Error("Akun Roblox ini sudah terhubung ke akun Discord lain.");
+    }
+    throw error;
+  }
+}
+
 export async function unlinkDiscord(discordUserId: string): Promise<boolean> {
   const result = await pool.query("DELETE FROM roblox_links WHERE discord_user_id = $1", [
     discordUserId

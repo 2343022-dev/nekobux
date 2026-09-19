@@ -19,7 +19,7 @@ export function verificationPanel(): {
         "",
         "Kamu hanya perlu memasukkan **username Roblox**—bot tidak pernah meminta password.",
         "",
-        "⚠️ Pastikan akunnya benar. Satu Roblox ID hanya dapat terhubung ke satu akun Discord dan pergantian akun harus melalui admin."
+        "⚠️ Pastikan akunnya benar. Kamu dapat mengganti akun sendiri selama akun lama belum mempunyai transaksi atau claim."
       ].join("\n")
     )
     .setFooter({ text: "Saldo dan payout selalu terkunci ke Roblox User ID yang terhubung." });
@@ -28,7 +28,12 @@ export function verificationPanel(): {
       .setCustomId("verify:start")
       .setLabel("Hubungkan Akun")
       .setEmoji("🔗")
-      .setStyle(ButtonStyle.Primary)
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setLabel("Masuk Community")
+      .setEmoji("👥")
+      .setStyle(ButtonStyle.Link)
+      .setURL(`https://www.roblox.com/communities/${config.robloxGroupId}`)
   );
   return { embeds: [embed], components: [row] };
 }
