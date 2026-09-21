@@ -1,6 +1,7 @@
 import type { RobloxUser } from "./types.js";
 
 const REQUEST_TIMEOUT_MS = 10_000;
+const THUMBNAIL_REQUEST_TIMEOUT_MS = 25_000;
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -41,9 +42,21 @@ export async function isCommunityMember(userId: number, groupId: number): Promis
 }
 
 async function getThumbnail(url: string): Promise<string | null> {
-  const result = await fetchJson<{
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(THUMBNAIL_REQUEST_TIMEOUT_MS),
+    headers: {
+      Accept: "application/json"
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Roblox thumbnail API gagal (${response.status}).`);
+  }
+
+  const result = (await response.json()) as {
     data: Array<{ state: string; imageUrl?: string }>;
-  }>(url);
+  };
+
   const thumbnail = result.data[0];
   return thumbnail?.state === "Completed" && thumbnail.imageUrl ? thumbnail.imageUrl : null;
 }
@@ -70,5 +83,16 @@ export async function getItemThumbnail(
   itemId: number,
   itemType: "asset" | "bundle"
 ): Promise<string | null> {
-  return itemType === "bundle" ? getBundleThumbnail(itemId) : getAssetThumbnail(itemId);
+  const [assetThumbnail, bundleThumbnail] = await Promise.all([
+    getAssetThumbnail(itemId).catch(() => null),
+    getBundleThumbnail(itemId).catch(() => null)
+  ]);
+
+  // Some Marketplace items, especially dynamic heads, are purchased with an
+  // ID that resolves through the bundle thumbnail endpoint even when the
+  // incoming purchase metadata labels it as an asset. Try the other endpoint
+  // before falling back to a placeholder on the card.
+  return itemType === "bundle"
+    ? bundleThumbnail || assetThumbnail
+    : assetThumbnail || bundleThumbnail;
 }

@@ -6,6 +6,7 @@ import { escapeXml, truncate } from "./utils.js";
 
 const CARD_WIDTH = 1063;
 const CARD_HEIGHT = 522;
+const IMAGE_REQUEST_TIMEOUT_MS = 25_000;
 const ARTWORK_PATH = join(
   process.cwd(),
   "assets",
@@ -19,7 +20,7 @@ async function imageDataUri(url: string | null): Promise<string> {
 
   try {
     const response = await fetch(url, {
-      signal: AbortSignal.timeout(10_000)
+      signal: AbortSignal.timeout(IMAGE_REQUEST_TIMEOUT_MS)
     });
 
     if (!response.ok) return "";
@@ -35,32 +36,60 @@ async function imageDataUri(url: string | null): Promise<string> {
 
 async function itemImageDataUri(
   url: string | null,
-  assetId: number
+  itemId: number,
+  itemType: "asset" | "bundle"
 ): Promise<string> {
   const directImage = await imageDataUri(url);
   if (directImage) return directImage;
 
-  try {
-    const endpoint = new URL("https://thumbnails.roblox.com/v1/assets");
-    endpoint.searchParams.set("assetIds", String(assetId));
-    endpoint.searchParams.set("returnPolicy", "PlaceHolder");
-    endpoint.searchParams.set("size", "420x420");
-    endpoint.searchParams.set("format", "Png");
-    endpoint.searchParams.set("isCircular", "false");
+  const endpointTypes: Array<"asset" | "bundle"> =
+    itemType === "bundle"
+      ? ["bundle", "asset"]
+      : ["asset", "bundle"];
 
-    const response = await fetch(endpoint, {
-      signal: AbortSignal.timeout(10_000)
-    });
-    if (!response.ok) return "";
+  const candidates = await Promise.all(
+    endpointTypes.map(async (endpointType): Promise<string> => {
+      try {
+        const endpoint = new URL(
+          endpointType === "bundle"
+            ? "https://thumbnails.roblox.com/v1/bundles/thumbnails"
+            : "https://thumbnails.roblox.com/v1/assets"
+        );
 
-    const payload = (await response.json()) as {
-      data?: Array<{ imageUrl?: string | null }>;
-    };
+        endpoint.searchParams.set(
+          endpointType === "bundle" ? "bundleIds" : "assetIds",
+          String(itemId)
+        );
+        endpoint.searchParams.set("returnPolicy", "PlaceHolder");
+        endpoint.searchParams.set("size", "420x420");
+        endpoint.searchParams.set("format", "Png");
+        endpoint.searchParams.set("isCircular", "false");
 
-    return imageDataUri(payload.data?.[0]?.imageUrl || null);
-  } catch {
-    return "";
-  }
+        const response = await fetch(endpoint, {
+          signal: AbortSignal.timeout(IMAGE_REQUEST_TIMEOUT_MS)
+        });
+        if (!response.ok) return "";
+
+        const payload = (await response.json()) as {
+          data?: Array<{
+            state?: string;
+            imageUrl?: string | null;
+          }>;
+        };
+
+        const thumbnail = payload.data?.[0];
+        if (thumbnail?.state !== "Completed" || !thumbnail.imageUrl) {
+          return "";
+        }
+
+        return imageDataUri(thumbnail.imageUrl);
+      } catch {
+        return "";
+      }
+    })
+  );
+
+  return candidates.find(Boolean) || "";
 }
 
 function loadArtwork(): Promise<Buffer> {
@@ -214,6 +243,40 @@ function robuxIcon(
     />
   </g>`;
 }
+
+function robloxLogo(x: number, y: number, size: number): string {
+  const tileSize = size;
+  const logoSize = size * 0.58;
+  const logoOffset = (tileSize - logoSize) / 2;
+  const holeSize = logoSize * 0.28;
+  const holeOffset = (logoSize - holeSize) / 2;
+
+  return `<g transform="translate(${x} ${y})">
+    <rect
+      x="0"
+      y="0"
+      width="${tileSize}"
+      height="${tileSize}"
+      rx="${tileSize * 0.28}"
+      fill="#fffaf7"
+      fill-opacity="0.82"
+      filter="url(#softShadow)"
+    />
+
+    <g transform="translate(${logoOffset} ${logoOffset}) rotate(12 ${logoSize / 2} ${logoSize / 2})">
+      <path
+        d="M 0 0 H ${logoSize} V ${logoSize} H 0 Z
+           M ${holeOffset} ${holeOffset}
+           H ${holeOffset + holeSize}
+           V ${holeOffset + holeSize}
+           H ${holeOffset} Z"
+        fill="#242021"
+        fill-rule="evenodd"
+      />
+    </g>
+  </g>`;
+}
+
 function sparkle(
   x: number,
   y: number,
@@ -265,7 +328,11 @@ export async function renderPurchaseCard(input: {
   const [artwork, avatar, item] = await Promise.all([
     loadArtwork(),
     imageDataUri(input.avatarUrl),
-    itemImageDataUri(input.itemUrl, purchase.assetId)
+    itemImageDataUri(
+      input.itemUrl,
+      purchase.assetId,
+      purchase.itemType
+    )
   ]);
 
   const totalSpentSize = valueFontSize(balance.totalSpent, 24);
@@ -514,7 +581,7 @@ export async function renderPurchaseCard(input: {
       stroke-opacity="0.22"
     />
 
-    ${robuxIcon(827, 253, 34)}
+    ${robloxLogo(827, 253, 34)}
     <text x="880" y="259" class="label">Roblox ID</text>
     <text x="880" y="284" class="value" font-size="15">
       ${purchase.robloxUserId}
