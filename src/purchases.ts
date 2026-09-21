@@ -17,7 +17,7 @@ import {
   savePurchaseMessage,
   type PurchaseDeliveryRecord
 } from "./db.js";
-import { getAvatarThumbnail, getItemThumbnail } from "./roblox.js";
+import { getAvatarThumbnail, resolveItemThumbnail } from "./roblox.js";
 import type {
   BalanceSummary,
   PurchaseInput,
@@ -157,21 +157,29 @@ export async function sendPurchaseCardPreview(
     totalCashback: cashbackRobux
   };
 
-  const [avatarUrl, itemUrl] = await Promise.all([
+  const [avatarUrl, itemThumbnail] = await Promise.all([
     getAvatarThumbnail(input.robloxUserId).catch(() => null),
-    getItemThumbnail(input.assetId, input.itemType).catch(() => null)
+    resolveItemThumbnail(input.assetId, input.itemType).catch(() => ({
+      imageUrl: null,
+      itemType: input.itemType
+    }))
   ]);
 
+  const resolvedPurchase: PurchaseRecord = {
+    ...purchase,
+    itemType: itemThumbnail.itemType
+  };
+
   const card = await renderPurchaseCard({
-    purchase,
+    purchase: resolvedPurchase,
     link: null,
     balance,
     avatarUrl,
-    itemUrl
+    itemUrl: itemThumbnail.imageUrl
   });
 
   const itemUrlTarget =
-    input.itemType === "bundle"
+    itemThumbnail.itemType === "bundle"
       ? `https://www.roblox.com/bundles/${input.assetId}`
       : `https://www.roblox.com/catalog/${input.assetId}`;
 
@@ -210,11 +218,26 @@ async function publishPurchase(client: Client, purchase: PurchaseRecord): Promis
 
   const link = await getLinkByRoblox(purchase.robloxUserId);
   const balance = await getBalance(purchase.robloxUserId);
-  const [avatarUrl, itemUrl] = await Promise.all([
+  const [avatarUrl, itemThumbnail] = await Promise.all([
     getAvatarThumbnail(purchase.robloxUserId).catch(() => null),
-    getItemThumbnail(purchase.assetId, purchase.itemType).catch(() => null)
+    resolveItemThumbnail(purchase.assetId, purchase.itemType).catch(() => ({
+      imageUrl: null,
+      itemType: purchase.itemType
+    }))
   ]);
-  const card = await renderPurchaseCard({ purchase, link, balance, avatarUrl, itemUrl });
+
+  const resolvedPurchase: PurchaseRecord = {
+    ...purchase,
+    itemType: itemThumbnail.itemType
+  };
+
+  const card = await renderPurchaseCard({
+    purchase: resolvedPurchase,
+    link,
+    balance,
+    avatarUrl,
+    itemUrl: itemThumbnail.imageUrl
+  });
   const mention = link ? `<@${link.discordUserId}>` : `**@${purchase.robloxUsername}**`;
   const content = [
     "## 🛒 PEMBELIAN BARU DARI NEKOBUXX!",
@@ -223,10 +246,14 @@ async function publishPurchase(client: Client, purchase: PurchaseRecord): Promis
   ].join("\n");
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setLabel(purchase.itemType === "bundle" ? "Lihat Bundle di Roblox" : "Lihat Item di Roblox")
+      .setLabel(
+        itemThumbnail.itemType === "bundle"
+          ? "Lihat Bundle di Roblox"
+          : "Lihat Item di Roblox"
+      )
       .setStyle(ButtonStyle.Link)
       .setURL(
-        purchase.itemType === "bundle"
+        itemThumbnail.itemType === "bundle"
           ? `https://www.roblox.com/bundles/${purchase.assetId}`
           : `https://www.roblox.com/catalog/${purchase.assetId}`
       )

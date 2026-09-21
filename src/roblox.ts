@@ -79,20 +79,37 @@ export async function getBundleThumbnail(bundleId: number): Promise<string | nul
   );
 }
 
-export async function getItemThumbnail(
+export interface ResolvedItemThumbnail {
+  imageUrl: string | null;
+  itemType: "asset" | "bundle";
+}
+
+export async function resolveItemThumbnail(
   itemId: number,
   itemType: "asset" | "bundle"
-): Promise<string | null> {
+): Promise<ResolvedItemThumbnail> {
   const [assetThumbnail, bundleThumbnail] = await Promise.all([
     getAssetThumbnail(itemId).catch(() => null),
     getBundleThumbnail(itemId).catch(() => null)
   ]);
 
-  // Some Marketplace items, especially dynamic heads, are purchased with an
-  // ID that resolves through the bundle thumbnail endpoint even when the
-  // incoming purchase metadata labels it as an asset. Try the other endpoint
-  // before falling back to a placeholder on the card.
-  return itemType === "bundle"
-    ? bundleThumbnail || assetThumbnail
-    : assetThumbnail || bundleThumbnail;
+  if (itemType === "bundle" && bundleThumbnail) {
+    return { imageUrl: bundleThumbnail, itemType: "bundle" };
+  }
+
+  if (itemType === "asset" && assetThumbnail) {
+    return { imageUrl: assetThumbnail, itemType: "asset" };
+  }
+
+  // Dynamic heads and some Marketplace products can arrive labeled as assets
+  // even though Roblox exposes their thumbnail and product page as a bundle.
+  if (bundleThumbnail) {
+    return { imageUrl: bundleThumbnail, itemType: "bundle" };
+  }
+
+  if (assetThumbnail) {
+    return { imageUrl: assetThumbnail, itemType: "asset" };
+  }
+
+  return { imageUrl: null, itemType };
 }
