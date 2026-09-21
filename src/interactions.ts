@@ -112,7 +112,7 @@ export async function handleInteraction(interaction: Interaction, client: Client
               new TextInputBuilder()
                 .setCustomId("username")
                 .setLabel("Username Roblox (bukan display name)")
-                .setPlaceholder("Contoh: Builderman")
+                .setPlaceholder("Contoh: nekobuxx")
                 .setMinLength(3)
                 .setMaxLength(20)
                 .setStyle(TextInputStyle.Short)
