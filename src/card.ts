@@ -144,32 +144,76 @@ function robuxIcon(
   pink = false,
   colorOverride?: string
 ): string {
-  const color = colorOverride || (pink ? "#e7a9b5" : "#625c5d");
-  const inner = size * 0.34;
-  const offset = (size - inner) / 2;
+  const large = size >= 28;
+  const baseColor =
+    colorOverride || (pink ? "#e6a0ad" : "#5b5556");
 
-  return `<g transform="translate(${x} ${y}) rotate(30 ${size / 2} ${size / 2})">
-    <rect
-      x="2"
-      y="2"
-      width="${size - 4}"
-      height="${size - 4}"
-      rx="${size * 0.2}"
+  const outerColor = large
+    ? colorOverride || (pink ? "#fff0ee" : "#fff8ef")
+    : baseColor;
+
+  const innerColor = large
+    ? colorOverride || (pink ? "#e6a0ad" : "#5b5556")
+    : baseColor;
+
+  const centerColor = large
+    ? colorOverride
+      ? "#746d6e"
+      : pink
+        ? "#ffe9e8"
+        : "#fff8ef"
+    : "#eee5e2";
+
+  const center = size / 2;
+  const innerRadius = size * 0.29;
+  const centerSize = size * 0.18;
+
+  const outerPoints = [
+    `${center},1.5`,
+    `${size - 2},${size * 0.26}`,
+    `${size - 2},${size * 0.74}`,
+    `${center},${size - 1.5}`,
+    `2,${size * 0.74}`,
+    `2,${size * 0.26}`
+  ].join(" ");
+
+  const innerPoints = [
+    `${center},${center - innerRadius}`,
+    `${center + innerRadius * 0.866},${center - innerRadius * 0.5}`,
+    `${center + innerRadius * 0.866},${center + innerRadius * 0.5}`,
+    `${center},${center + innerRadius}`,
+    `${center - innerRadius * 0.866},${center + innerRadius * 0.5}`,
+    `${center - innerRadius * 0.866},${center - innerRadius * 0.5}`
+  ].join(" ");
+
+  const glow = large
+    ? 'filter="url(#starGlow)"'
+    : "";
+
+  return `<g transform="translate(${x} ${y})" ${glow}>
+    <polygon
+      points="${outerPoints}"
       fill="none"
-      stroke="${color}"
-      stroke-width="${Math.max(2, size * 0.11)}"
+      stroke="${outerColor}"
+      stroke-width="${Math.max(1.8, size * 0.1)}"
+      stroke-linejoin="round"
     />
+
+    <polygon
+      points="${innerPoints}"
+      fill="${innerColor}"
+    />
+
     <rect
-      x="${offset}"
-      y="${offset}"
-      width="${inner}"
-      height="${inner}"
-      rx="${inner * 0.18}"
-      fill="${color}"
+      x="${center - centerSize / 2}"
+      y="${center - centerSize / 2}"
+      width="${centerSize}"
+      height="${centerSize}"
+      rx="${centerSize * 0.18}"
+      fill="${centerColor}"
     />
   </g>`;
 }
-
 function sparkle(
   x: number,
   y: number,
