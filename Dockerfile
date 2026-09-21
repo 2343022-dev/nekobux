@@ -16,5 +16,6 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 RUN mkdir -p /usr/local/share/fonts/truetype/nekobux && cp node_modules/@fontsource/fredoka/files/fredoka-latin-700-normal.woff /usr/local/share/fonts/truetype/nekobux/Fredoka-Bold.woff && fc-cache -f
 COPY --from=build /app/dist ./dist
+COPY assets ./assets
 USER node
 CMD ["npm", "start"]
