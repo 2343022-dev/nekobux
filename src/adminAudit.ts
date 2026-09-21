@@ -54,10 +54,10 @@ export async function sendAdminAuditLog(
         createdAt
       });
       await channel.send({
-        content: `🗂️ **${input.title}**`,
+        content: `💸 **PAYOUT LOG • ${input.title}**`,
         files: [
           new AttachmentBuilder(card, {
-            name: `audit-${input.command}-${createdAt.getTime()}.png`
+            name: `payout-log-${input.command}-${createdAt.getTime()}.png`
           })
         ],
         allowedMentions: { parse: [] }
@@ -81,7 +81,7 @@ export async function sendAdminAuditLog(
         },
         ...(input.fields ?? []).map(safeField)
       )
-      .setFooter({ text: "Nekobux Admin Audit • Jangan hapus pesan ini" })
+      .setFooter({ text: "Nekobux Payout Log • Jangan hapus pesan ini" })
       .setTimestamp(createdAt);
 
     await channel.send({

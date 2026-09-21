@@ -10,6 +10,7 @@ import {
   MessageFlags,
   PermissionFlagsBits
 } from "discord.js";
+import { sendPayoutLog } from "./claimQueue.js";
 import { config } from "./config.js";
 import {
   getActiveClaim,
@@ -224,11 +225,22 @@ export async function handleClaimAction(
       `💸 Claim #${claimId} sebesar **${claim.amountRobux} Robux** telah dibayar oleh ${interaction.user}.`
     );
     if (config.payoutLogChannelId) {
-      const log = await client.channels.fetch(config.payoutLogChannelId);
-      if (log?.isSendable()) {
-        await log.send(
-          `✅ Claim **#${claimId}** • <@${claim.discordUserId}> • Roblox ID **${claim.robloxUserId}** • **${claim.amountRobux} R$** • ${purchases.length} item.`
+      const link = await getLinkByDiscord(claim.discordUserId);
+      if (link?.robloxUserId === claim.robloxUserId) {
+        await sendPayoutLog(
+          client,
+          claim,
+          link,
+          interaction.user.id,
+          interaction.user.globalName ?? interaction.user.username
         );
+      } else {
+        const log = await client.channels.fetch(config.payoutLogChannelId);
+        if (log?.isSendable()) {
+          await log.send(
+            `💸 **PAYOUT LOG** • Claim **#${claimId}** • <@${claim.discordUserId}> • Roblox ID **${claim.robloxUserId}** • **${claim.amountRobux} R$** • ${purchases.length} item.`
+          );
+        }
       }
     }
     return;

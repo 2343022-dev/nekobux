@@ -488,18 +488,18 @@ async function handleCommand(
     return;
   }
 
-  if (interaction.commandName === "test-audit-log") {
+  if (interaction.commandName === "test-payout-log") {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const sent = await sendAdminAuditLog(client, {
-      title: "🧪 Pengujian Audit Log",
-      command: "test-audit-log",
+      title: "🧪 Pengujian Payout Log",
+      command: "test-payout-log",
       adminDiscordId: interaction.user.id,
       color: 0x8f7f84,
       fields: [
         {
           name: "Hasil",
-          value: "Channel audit dapat menerima pesan dari bot."
+          value: "Channel payout dapat menerima banner dari bot."
         },
         { name: "Sumber", value: `<#${interaction.channelId}>` }
       ]
@@ -507,8 +507,8 @@ async function handleCommand(
 
     await interaction.editReply(
       sent
-        ? `✅ Audit log berhasil dikirim ke <#${config.payoutLogChannelId}>.`
-        : "❌ Audit log gagal dikirim. Periksa PAYOUT_LOG_CHANNEL_ID dan izin bot."
+        ? `✅ Payout log berhasil dikirim ke <#${config.payoutLogChannelId}>.`
+        : "❌ Payout log gagal dikirim. Periksa PAYOUT_LOG_CHANNEL_ID dan izin bot."
     );
     return;
   }

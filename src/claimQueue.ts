@@ -1,10 +1,12 @@
 import {
+  AttachmentBuilder,
   ChatInputCommandInteraction,
   Client,
   EmbedBuilder,
   MessageFlags
 } from "discord.js";
 import { sendAdminAuditLog } from "./adminAudit.js";
+import { renderClaimLogCard } from "./claimLogCard.js";
 import { config } from "./config.js";
 import {
   cancelManagedClaim,
@@ -23,6 +25,7 @@ import {
   type RobloxLink
 } from "./db.js";
 import { refreshMembership } from "./membership.js";
+import { getAvatarThumbnail } from "./roblox.js";
 import { discordTimestamp, errorMessage } from "./utils.js";
 
 function communityReadyAt(link: RobloxLink): Date | null {
@@ -139,7 +142,42 @@ async function sendFailureNotification(client: Client, claim: ClaimRecord): Prom
       ].join("\n")
     )
     .setTimestamp(claim.closedAt ?? new Date());
-  const message = await channel.send({ embeds: [embed], allowedMentions: { parse: [] } });
+  let message;
+  try {
+    const avatarUrl = await getAvatarThumbnail(claim.robloxUserId).catch(() => null);
+    const card = await renderClaimLogCard({
+      variant: "failed",
+      claimId: claim.id,
+      discordUserId: claim.discordUserId,
+      robloxUserId: claim.robloxUserId,
+      robloxUsername: username,
+      amountRobux: claim.amountRobux,
+      purchaseCount: purchases.length,
+      avatarUrl,
+      reason: claim.failureReason ?? "Tidak diketahui",
+      createdAt: claim.closedAt ?? new Date()
+    });
+    message = await channel.send({
+      content: [
+        "## ❌ CLAIM CASHBACK GAGAL",
+        `<@${claim.discordUserId}> • Klaim **#${claim.id}** dibatalkan.`,
+        `Saldo **${claim.amountRobux.toLocaleString("id-ID")} Robux** sudah dikembalikan dan tidak hangus.`,
+        `Alasan: ${claim.failureReason ?? "Tidak diketahui"}`
+      ].join("\n"),
+      files: [
+        new AttachmentBuilder(card, {
+          name: `gagal-claim-${claim.id}.png`
+        })
+      ],
+      allowedMentions: { parse: [] }
+    });
+  } catch (cardError) {
+    console.error(`[failed-claim-card] #${claim.id}: ${errorMessage(cardError)}`);
+    message = await channel.send({
+      embeds: [embed],
+      allowedMentions: { parse: [] }
+    });
+  }
   if (claim.readyChannelId && claim.readyMessageId) {
     const queueChannel = await client.channels.fetch(claim.readyChannelId).catch(() => null);
     if (queueChannel?.isSendable()) {
@@ -160,6 +198,69 @@ async function cancelForQueue(
   reason: string
 ): Promise<ClaimRecord | null> {
   return cancelManagedClaim(claimId, reason);
+}
+
+export async function sendPayoutLog(
+  client: Client,
+  claim: ClaimRecord,
+  link: RobloxLink,
+  actorId: string,
+  actorName: string
+): Promise<void> {
+  if (!config.payoutLogChannelId) return;
+
+  const channel = await client.channels.fetch(config.payoutLogChannelId);
+  if (!channel?.isSendable()) {
+    throw new Error("Channel payout-log tidak ditemukan atau bot tidak dapat mengirim pesan.");
+  }
+
+  const [purchases, avatarUrl] = await Promise.all([
+    getClaimPurchases(claim.id),
+    getAvatarThumbnail(claim.robloxUserId).catch(() => null)
+  ]);
+
+  try {
+    const card = await renderClaimLogCard({
+      variant: "payout",
+      claimId: claim.id,
+      discordUserId: claim.discordUserId,
+      robloxUserId: claim.robloxUserId,
+      robloxUsername: link.robloxUsername,
+      amountRobux: claim.amountRobux,
+      purchaseCount: purchases.length,
+      avatarUrl,
+      actorName,
+      createdAt: claim.closedAt ?? new Date()
+    });
+
+    await channel.send({
+      content: [
+        "## 💸 PAYOUT LOG",
+        `Klaim **#${claim.id}** milik <@${claim.discordUserId}> telah selesai dibayar.`,
+        `Akun Roblox: **@${link.robloxUsername}** • Nominal: **${claim.amountRobux.toLocaleString("id-ID")} Robux**`,
+        `Diproses oleh: <@${actorId}>`
+      ].join("\n"),
+      files: [
+        new AttachmentBuilder(card, {
+          name: `payout-log-${claim.id}.png`
+        })
+      ],
+      allowedMentions: { parse: [] }
+    });
+  } catch (cardError) {
+    console.error(`[payout-log-card] #${claim.id}: ${errorMessage(cardError)}`);
+    await channel.send({
+      content: [
+        "## 💸 PAYOUT LOG",
+        `✅ Klaim **#${claim.id}** selesai dibayar.`,
+        `Discord: <@${claim.discordUserId}>`,
+        `Roblox: **@${link.robloxUsername}** (ID ${claim.robloxUserId})`,
+        `Nominal: **${claim.amountRobux.toLocaleString("id-ID")} Robux**`,
+        `Admin: <@${actorId}>`
+      ].join("\n"),
+      allowedMentions: { parse: [] }
+    });
+  }
 }
 
 export async function processClaimQueue(client: Client, onlyClaimId?: number): Promise<void> {
@@ -347,23 +448,15 @@ export async function completeClaimPayment(
   await updateReadyMessage(client, paidClaim, "paid", interaction.user.id).catch((error) =>
     console.error(`[claim-paid-message] #${claim.id}: ${errorMessage(error)}`)
   );
-  if (config.payoutLogChannelId) {
-    const log = await client.channels.fetch(config.payoutLogChannelId).catch(() => null);
-    if (log?.isSendable()) {
-      await log.send({
-        content: [
-          `✅ Klaim **#${claim.id}** selesai dibayar.`,
-          `Discord: <@${claim.discordUserId}>`,
-          `Roblox: **@${link.robloxUsername}** (ID ${claim.robloxUserId})`,
-          `Nominal: **${claim.amountRobux.toLocaleString("id-ID")} Robux**`,
-          `Admin: <@${interaction.user.id}>`
-        ].join("\n"),
-        allowedMentions: { parse: [] }
-      }).catch((error) =>
-        console.error(`[payout-log] #${claim.id}: ${errorMessage(error)}`)
-      );
-    }
-  }
+  await sendPayoutLog(
+    client,
+    paidClaim,
+    link,
+    interaction.user.id,
+    interaction.user.globalName ?? interaction.user.username
+  ).catch((error) =>
+    console.error(`[payout-log] #${claim.id}: ${errorMessage(error)}`)
+  );
   await interaction.editReply(
     `✅ Klaim **#${claim.id}** sebesar **${claim.amountRobux.toLocaleString("id-ID")} Robux** berhasil ditandai dibayar.`
   );

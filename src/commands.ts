@@ -14,8 +14,8 @@ const commands = [
     .setName("riwayat")
     .setDescription("Lihat riwayat pembelian dan cashback Roblox kamu."),
   new SlashCommandBuilder()
-    .setName("test-audit-log")
-    .setDescription("Menguji pengiriman audit log admin.")
+    .setName("test-payout-log")
+    .setDescription("Menguji banner dan pengiriman payout log.")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder()
     .setName("panel")
