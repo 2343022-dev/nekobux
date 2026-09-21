@@ -33,6 +33,36 @@ async function imageDataUri(url: string | null): Promise<string> {
   }
 }
 
+async function itemImageDataUri(
+  url: string | null,
+  assetId: number
+): Promise<string> {
+  const directImage = await imageDataUri(url);
+  if (directImage) return directImage;
+
+  try {
+    const endpoint = new URL("https://thumbnails.roblox.com/v1/assets");
+    endpoint.searchParams.set("assetIds", String(assetId));
+    endpoint.searchParams.set("returnPolicy", "PlaceHolder");
+    endpoint.searchParams.set("size", "420x420");
+    endpoint.searchParams.set("format", "Png");
+    endpoint.searchParams.set("isCircular", "false");
+
+    const response = await fetch(endpoint, {
+      signal: AbortSignal.timeout(10_000)
+    });
+    if (!response.ok) return "";
+
+    const payload = (await response.json()) as {
+      data?: Array<{ imageUrl?: string | null }>;
+    };
+
+    return imageDataUri(payload.data?.[0]?.imageUrl || null);
+  } catch {
+    return "";
+  }
+}
+
 function loadArtwork(): Promise<Buffer> {
   if (artworkPromise) return artworkPromise;
 
@@ -107,8 +137,14 @@ function valueFontSize(value: number, normal: number): number {
   return normal;
 }
 
-function robuxIcon(x: number, y: number, size: number, pink = false): string {
-  const color = pink ? "#e7a9b5" : "#625c5d";
+function robuxIcon(
+  x: number,
+  y: number,
+  size: number,
+  pink = false,
+  colorOverride?: string
+): string {
+  const color = colorOverride || (pink ? "#e7a9b5" : "#625c5d");
   const inner = size * 0.34;
   const offset = (size - inner) / 2;
 
@@ -132,6 +168,32 @@ function robuxIcon(x: number, y: number, size: number, pink = false): string {
       fill="${color}"
     />
   </g>`;
+}
+
+function sparkle(
+  x: number,
+  y: number,
+  size: number,
+  opacity = 0.9
+): string {
+  return `<path
+    d="M ${x} ${y - size}
+       C ${x + size * 0.12} ${y - size * 0.2},
+         ${x + size * 0.2} ${y - size * 0.12},
+         ${x + size} ${y}
+       C ${x + size * 0.2} ${y + size * 0.12},
+         ${x + size * 0.12} ${y + size * 0.2},
+         ${x} ${y + size}
+       C ${x - size * 0.12} ${y + size * 0.2},
+         ${x - size * 0.2} ${y + size * 0.12},
+         ${x - size} ${y}
+       C ${x - size * 0.2} ${y - size * 0.12},
+         ${x - size * 0.12} ${y - size * 0.2},
+         ${x} ${y - size} Z"
+    fill="#fff8ef"
+    opacity="${opacity}"
+    filter="url(#starGlow)"
+  />`;
 }
 
 function copyIcon(x: number, y: number): string {
@@ -159,12 +221,12 @@ export async function renderPurchaseCard(input: {
   const [artwork, avatar, item] = await Promise.all([
     loadArtwork(),
     imageDataUri(input.avatarUrl),
-    imageDataUri(input.itemUrl)
+    itemImageDataUri(input.itemUrl, purchase.assetId)
   ]);
 
-  const totalSpentSize = valueFontSize(balance.totalSpent, 27);
-  const totalCashbackSize = valueFontSize(balance.totalCashback, 27);
-  const bottomCashbackSize = valueFontSize(balance.totalCashback, 36);
+  const totalSpentSize = valueFontSize(balance.totalSpent, 24);
+  const totalCashbackSize = valueFontSize(balance.totalCashback, 24);
+  const bottomCashbackSize = valueFontSize(balance.totalCashback, 32);
 
   const overlay = `
   <svg
@@ -175,7 +237,7 @@ export async function renderPurchaseCard(input: {
   >
     <defs>
       <clipPath id="itemClip">
-        <rect x="378" y="260" width="126" height="112" rx="15"/>
+        <rect x="374" y="255" width="132" height="120" rx="14"/>
       </clipPath>
 
       <clipPath id="avatarClip">
@@ -183,14 +245,15 @@ export async function renderPurchaseCard(input: {
       </clipPath>
 
       <linearGradient id="mainPanel" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#eee7e4"/>
-        <stop offset="0.52" stop-color="#ded5d3"/>
-        <stop offset="1" stop-color="#c9bfbd"/>
+        <stop offset="0" stop-color="#d3c9c6"/>
+        <stop offset="0.5" stop-color="#bdb4b2"/>
+        <stop offset="1" stop-color="#aaa2a1"/>
       </linearGradient>
 
       <linearGradient id="subPanel" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#fffaf7" stop-opacity="0.86"/>
-        <stop offset="1" stop-color="#e9e0dd" stop-opacity="0.72"/>
+        <stop offset="0" stop-color="#f3e9e5" stop-opacity="0.92"/>
+        <stop offset="0.5" stop-color="#ded4d1" stop-opacity="0.9"/>
+        <stop offset="1" stop-color="#c8bfbd" stop-opacity="0.94"/>
       </linearGradient>
 
       <linearGradient id="placeholderFill" x1="0" y1="0" x2="1" y2="1">
@@ -199,9 +262,9 @@ export async function renderPurchaseCard(input: {
       </linearGradient>
 
       <linearGradient id="bottomPanel" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0" stop-color="#5d5859" stop-opacity="0.92"/>
-        <stop offset="0.55" stop-color="#756e6f" stop-opacity="0.9"/>
-        <stop offset="1" stop-color="#4f4a4b" stop-opacity="0.94"/>
+        <stop offset="0" stop-color="#6e6869" stop-opacity="0.96"/>
+        <stop offset="0.52" stop-color="#8a8283" stop-opacity="0.94"/>
+        <stop offset="1" stop-color="#625d5e" stop-opacity="0.97"/>
       </linearGradient>
 
       <linearGradient id="cashText" x1="0" y1="0" x2="0" y2="1">
@@ -210,9 +273,14 @@ export async function renderPurchaseCard(input: {
         <stop offset="1" stop-color="#df9eab"/>
       </linearGradient>
 
+      <radialGradient id="pinkAura" cx="50%" cy="50%" r="50%">
+        <stop offset="0" stop-color="#f5c7cf" stop-opacity="0.3"/>
+        <stop offset="1" stop-color="#f5c7cf" stop-opacity="0"/>
+      </radialGradient>
+
       <filter id="panelShadow" x="-20%" y="-25%" width="140%" height="150%">
-        <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#251f20" flood-opacity="0.28"/>
-        <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#fff7f1" flood-opacity="0.34"/>
+        <feDropShadow dx="0" dy="7" stdDeviation="9" flood-color="#292324" flood-opacity="0.34"/>
+        <feDropShadow dx="0" dy="0" stdDeviation="7" flood-color="#fff7ef" flood-opacity="0.48"/>
       </filter>
 
       <filter id="softShadow" x="-20%" y="-30%" width="140%" height="160%">
@@ -223,23 +291,27 @@ export async function renderPurchaseCard(input: {
         <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#fff4f1" flood-opacity="0.82"/>
         <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#bf7584" flood-opacity="0.35"/>
       </filter>
+
+      <filter id="starGlow" x="-160%" y="-160%" width="420%" height="420%">
+        <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#fff7e8" flood-opacity="0.95"/>
+      </filter>
     </defs>
 
     <style>
       text {
-        font-family: 'Fredoka', 'DejaVu Sans', sans-serif;
+        font-family: 'DejaVu Sans', sans-serif;
       }
 
       .label {
         fill: #746d6e;
-        font-size: 12px;
-        font-weight: 500;
-        letter-spacing: 0.25px;
+        font-size: 11px;
+        font-weight: 400;
+        letter-spacing: 0.1px;
       }
 
       .value {
         fill: #504a4b;
-        font-weight: 700;
+        font-weight: 600;
       }
 
       .fallbackText {
@@ -259,7 +331,7 @@ export async function renderPurchaseCard(input: {
       rx="26"
       fill="url(#mainPanel)"
       stroke="#fff8f3"
-      stroke-width="3"
+      stroke-width="2"
       filter="url(#panelShadow)"
     />
 
@@ -272,49 +344,66 @@ export async function renderPurchaseCard(input: {
       fill="none"
       stroke="#ffffff"
       stroke-opacity="0.48"
+      stroke-width="0.9"
+    />
+
+    <ellipse
+      cx="401"
+      cy="257"
+      rx="75"
+      ry="52"
+      fill="url(#pinkAura)"
+    />
+
+    <path
+      d="M 383 239 H 1007"
+      fill="none"
+      stroke="#fffaf5"
+      stroke-opacity="0.58"
       stroke-width="1.2"
+      stroke-linecap="round"
     />
 
     <!-- Kartu item. -->
     <rect
-      x="372"
-      y="247"
-      width="139"
-      height="189"
+      x="365"
+      y="244"
+      width="151"
+      height="199"
       rx="18"
       fill="url(#subPanel)"
       stroke="#fffaf7"
-      stroke-opacity="0.82"
-      stroke-width="1.5"
+      stroke-opacity="0.62"
+      stroke-width="1.1"
       filter="url(#softShadow)"
     />
 
     ${dynamicImage({
       uri: item,
-      x: 378,
-      y: 260,
-      width: 126,
-      height: 112,
+      x: 374,
+      y: 255,
+      width: 132,
+      height: 120,
       clipId: "itemClip",
       fallback: "ITEM PREVIEW"
     })}
 
     <rect
-      x="378"
-      y="260"
-      width="126"
-      height="112"
-      rx="15"
+      x="374"
+      y="255"
+      width="132"
+      height="120"
+      rx="14"
       fill="none"
       stroke="#fffaf7"
       stroke-opacity="0.82"
-      stroke-width="1.5"
+      stroke-width="1.1"
     />
 
     <rect
-      x="382"
-      y="383"
-      width="118"
+      x="377"
+      y="386"
+      width="127"
       height="27"
       rx="13.5"
       fill="#6e6768"
@@ -324,12 +413,12 @@ export async function renderPurchaseCard(input: {
     />
 
     <text
-      x="441"
+      x="440.5"
       y="401"
       text-anchor="middle"
       fill="#fffaf7"
-      font-size="11"
-      font-weight="700"
+      font-size="10"
+      font-weight="600"
       letter-spacing="0.4"
     >NEKOBUXX SHOP</text>
 
@@ -367,7 +456,7 @@ export async function renderPurchaseCard(input: {
     />
 
     <text x="598" y="259" class="label">Dibeli oleh</text>
-    <text x="598" y="284" class="value" font-size="20">
+    <text x="598" y="284" class="value" font-size="17">
       ${escapeXml(truncate(purchase.robloxUsername, 17))}
     </text>
     ${copyIcon(747, 269)}
@@ -383,7 +472,7 @@ export async function renderPurchaseCard(input: {
 
     ${robuxIcon(827, 253, 34)}
     <text x="880" y="259" class="label">Roblox ID</text>
-    <text x="880" y="284" class="value" font-size="17">
+    <text x="880" y="284" class="value" font-size="15">
       ${purchase.robloxUserId}
     </text>
     ${copyIcon(1001, 269)}
@@ -404,21 +493,21 @@ export async function renderPurchaseCard(input: {
     ${robuxIcon(538, 332, 18)}
     <text x="568" y="346" class="label">Nama Item</text>
     <text x="659" y="346" class="label">:</text>
-    <text x="676" y="346" class="value" font-size="15">
+    <text x="676" y="346" class="value" font-size="13">
       ${escapeXml(truncate(purchase.assetName, 17))}
     </text>
 
     ${robuxIcon(538, 368, 18)}
     <text x="568" y="382" class="label">Item ID</text>
     <text x="659" y="382" class="label">:</text>
-    <text x="676" y="382" class="value" font-size="15">
+    <text x="676" y="382" class="value" font-size="13">
       ${purchase.assetId}
     </text>
 
     ${robuxIcon(538, 403, 18)}
     <text x="568" y="417" class="label">Harga Item</text>
     <text x="659" y="417" class="label">:</text>
-    <text x="676" y="417" class="value" font-size="17">
+    <text x="676" y="417" class="value" font-size="14">
       R$ ${purchase.priceRobux.toLocaleString("id-ID")}
     </text>
     ${robuxIcon(759, 403, 18)}
@@ -459,6 +548,7 @@ export async function renderPurchaseCard(input: {
       fill="#d88695"
       font-size="${totalCashbackSize}"
       font-weight="700"
+      filter="url(#cashGlow)"
     >R$ ${balance.totalCashback.toLocaleString("id-ID")}</text>
 
     <!-- Total cashback bawah, dibangun ulang penuh. -->
@@ -475,13 +565,16 @@ export async function renderPurchaseCard(input: {
       filter="url(#panelShadow)"
     />
 
-    ${robuxIcon(389, 468, 36)}
+    ${robuxIcon(389, 468, 36, false, "#fff3df")}
+    ${sparkle(771, 482, 11)}
+    ${sparkle(1008, 483, 12)}
+    ${sparkle(786, 501, 5, 0.75)}
     <text
       x="447"
       y="494"
       fill="#fffaf7"
-      font-size="19"
-      font-weight="700"
+      font-size="17"
+      font-weight="600"
       letter-spacing="0.3"
     >Total Cashback Diterima</text>
 
