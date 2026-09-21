@@ -174,6 +174,7 @@ function robuxIcon(
   colorOverride?: string
 ): string {
   const large = size >= 28;
+
   const baseColor =
     colorOverride || (pink ? "#e6a0ad" : "#5b5556");
 
@@ -243,7 +244,6 @@ function robuxIcon(
     />
   </g>`;
 }
-
 function robloxLogo(x: number, y: number, size: number): string {
   const tileSize = size;
   const logoSize = size * 0.58;
