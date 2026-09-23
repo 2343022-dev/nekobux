@@ -493,14 +493,14 @@ async function handleCommand(
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     if (!config.payoutLogChannelId) {
-      await interaction.editReply("âŒ PAYOUT_LOG_CHANNEL_ID belum diisi.");
+      await interaction.editReply("\u274C PAYOUT_LOG_CHANNEL_ID belum diisi.");
       return;
     }
 
     const channel = await client.channels.fetch(config.payoutLogChannelId);
     if (!channel?.isSendable()) {
       await interaction.editReply(
-        "âŒ Channel payout log tidak ditemukan atau bot tidak dapat mengirim pesan."
+        "\u274C Channel payout log tidak ditemukan atau bot tidak dapat mengirim pesan."
       );
       return;
     }
@@ -528,11 +528,11 @@ async function handleCommand(
 
     await channel.send({
       content: [
-        "## ðŸ’¸ PREVIEW PAYOUT LOG",
-        "**Ini hanya previewâ€”tidak ada klaim atau saldo yang diubah.**",
-        `> **Total dicairkan:** 500 Robux`,
+        "## \uD83D\uDCB8 PREVIEW PAYOUT LOG",
+        "**Ini hanya preview - tidak ada klaim atau saldo yang diubah.**",
+        "> **Total dicairkan:** 500 Robux",
         `> **Akun Roblox:** @${robloxUsername}`,
-        `> **Claim ID:** #123`,
+        "> **Claim ID:** #123",
         `**Diproses oleh:** <@${interaction.user.id}>`
       ].join("\n"),
       files: [
@@ -544,7 +544,7 @@ async function handleCommand(
     });
 
     await interaction.editReply(
-      `âœ… Preview payout log berhasil dikirim ke <#${config.payoutLogChannelId}>.`
+      `\u2705 Preview payout log berhasil dikirim ke <#${config.payoutLogChannelId}>.`
     );
     return;
   }

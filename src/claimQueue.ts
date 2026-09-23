@@ -239,7 +239,7 @@ export async function sendPayoutLog(
 
     await channel.send({
       content: [
-        "## ðŸ’¸ CASHBACK BERHASIL DIBAYARKAN",
+        "## \uD83D\uDCB8 CASHBACK BERHASIL DIBAYARKAN",
         `<@${claim.discordUserId}>, cashback kamu telah selesai diproses.`,
         `> **Total dicairkan:** ${formattedAmount} Robux`,
         `> **Akun Roblox:** @${link.robloxUsername}`,
@@ -257,7 +257,7 @@ export async function sendPayoutLog(
     console.error(`[payout-log-card] #${claim.id}: ${errorMessage(cardError)}`);
     await channel.send({
       content: [
-        "## ðŸ’¸ CASHBACK BERHASIL DIBAYARKAN",
+        "## \uD83D\uDCB8 CASHBACK BERHASIL DIBAYARKAN",
         `<@${claim.discordUserId}>, cashback kamu telah selesai diproses.`,
         `> **Total dicairkan:** ${formattedAmount} Robux`,
         `> **Akun Roblox:** @${link.robloxUsername} (ID ${claim.robloxUserId})`,
