@@ -19,6 +19,7 @@ import {
 import { sendAdminAuditLog } from "./adminAudit.js";
 import { config } from "./config.js";
 import { renderBalanceCard } from "./balanceCard.js";
+import { renderClaimLogCard } from "./claimLogCard.js";
 import {
   approveClaim,
   cancelClaimByAdmin,
@@ -491,24 +492,59 @@ async function handleCommand(
   if (interaction.commandName === "test-payout-log") {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const sent = await sendAdminAuditLog(client, {
-      title: "🧪 Pengujian Payout Log",
-      command: "test-payout-log",
-      adminDiscordId: interaction.user.id,
-      color: 0x8f7f84,
-      fields: [
-        {
-          name: "Hasil",
-          value: "Channel payout dapat menerima banner dari bot."
-        },
-        { name: "Sumber", value: `<#${interaction.channelId}>` }
-      ]
+    if (!config.payoutLogChannelId) {
+      await interaction.editReply("âŒ PAYOUT_LOG_CHANNEL_ID belum diisi.");
+      return;
+    }
+
+    const channel = await client.channels.fetch(config.payoutLogChannelId);
+    if (!channel?.isSendable()) {
+      await interaction.editReply(
+        "âŒ Channel payout log tidak ditemukan atau bot tidak dapat mengirim pesan."
+      );
+      return;
+    }
+
+    const link = await getLinkByDiscord(interaction.user.id);
+    const robloxUserId = link?.robloxUserId ?? 1;
+    const robloxUsername = link?.robloxUsername ?? interaction.user.username;
+    const avatarUrl = link
+      ? await getAvatarThumbnail(link.robloxUserId).catch(() => null)
+      : interaction.user.displayAvatarURL({ extension: "png", size: 256 });
+
+    const card = await renderClaimLogCard({
+      variant: "payout",
+      claimId: 123,
+      discordUserId: interaction.user.id,
+      discordName: interaction.user.username,
+      robloxUserId,
+      robloxUsername,
+      amountRobux: 500,
+      purchaseCount: 3,
+      avatarUrl,
+      actorName: interaction.user.username,
+      createdAt: new Date()
+    });
+
+    await channel.send({
+      content: [
+        "## ðŸ’¸ PREVIEW PAYOUT LOG",
+        "**Ini hanya previewâ€”tidak ada klaim atau saldo yang diubah.**",
+        `> **Total dicairkan:** 500 Robux`,
+        `> **Akun Roblox:** @${robloxUsername}`,
+        `> **Claim ID:** #123`,
+        `**Diproses oleh:** <@${interaction.user.id}>`
+      ].join("\n"),
+      files: [
+        new AttachmentBuilder(card, {
+          name: `payout-log-preview-${Date.now()}.png`
+        })
+      ],
+      allowedMentions: { parse: [] }
     });
 
     await interaction.editReply(
-      sent
-        ? `✅ Payout log berhasil dikirim ke <#${config.payoutLogChannelId}>.`
-        : "❌ Payout log gagal dikirim. Periksa PAYOUT_LOG_CHANNEL_ID dan izin bot."
+      `âœ… Preview payout log berhasil dikirim ke <#${config.payoutLogChannelId}>.`
     );
     return;
   }

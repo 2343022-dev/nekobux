@@ -214,16 +214,20 @@ export async function sendPayoutLog(
     throw new Error("Channel payout-log tidak ditemukan atau bot tidak dapat mengirim pesan.");
   }
 
-  const [purchases, avatarUrl] = await Promise.all([
+  const [purchases, avatarUrl, discordUser] = await Promise.all([
     getClaimPurchases(claim.id),
-    getAvatarThumbnail(claim.robloxUserId).catch(() => null)
+    getAvatarThumbnail(claim.robloxUserId).catch(() => null),
+    client.users.fetch(claim.discordUserId).catch(() => null)
   ]);
+
+  const formattedAmount = claim.amountRobux.toLocaleString("id-ID");
 
   try {
     const card = await renderClaimLogCard({
       variant: "payout",
       claimId: claim.id,
       discordUserId: claim.discordUserId,
+      discordName: discordUser?.username ?? claim.discordUserId,
       robloxUserId: claim.robloxUserId,
       robloxUsername: link.robloxUsername,
       amountRobux: claim.amountRobux,
@@ -235,10 +239,12 @@ export async function sendPayoutLog(
 
     await channel.send({
       content: [
-        "## 💸 PAYOUT LOG",
-        `Klaim **#${claim.id}** milik <@${claim.discordUserId}> telah selesai dibayar.`,
-        `Akun Roblox: **@${link.robloxUsername}** • Nominal: **${claim.amountRobux.toLocaleString("id-ID")} Robux**`,
-        `Diproses oleh: <@${actorId}>`
+        "## ðŸ’¸ CASHBACK BERHASIL DIBAYARKAN",
+        `<@${claim.discordUserId}>, cashback kamu telah selesai diproses.`,
+        `> **Total dicairkan:** ${formattedAmount} Robux`,
+        `> **Akun Roblox:** @${link.robloxUsername}`,
+        `> **Claim ID:** #${claim.id}`,
+        `**Diproses oleh:** <@${actorId}>`
       ].join("\n"),
       files: [
         new AttachmentBuilder(card, {
@@ -251,12 +257,12 @@ export async function sendPayoutLog(
     console.error(`[payout-log-card] #${claim.id}: ${errorMessage(cardError)}`);
     await channel.send({
       content: [
-        "## 💸 PAYOUT LOG",
-        `✅ Klaim **#${claim.id}** selesai dibayar.`,
-        `Discord: <@${claim.discordUserId}>`,
-        `Roblox: **@${link.robloxUsername}** (ID ${claim.robloxUserId})`,
-        `Nominal: **${claim.amountRobux.toLocaleString("id-ID")} Robux**`,
-        `Admin: <@${actorId}>`
+        "## ðŸ’¸ CASHBACK BERHASIL DIBAYARKAN",
+        `<@${claim.discordUserId}>, cashback kamu telah selesai diproses.`,
+        `> **Total dicairkan:** ${formattedAmount} Robux`,
+        `> **Akun Roblox:** @${link.robloxUsername} (ID ${claim.robloxUserId})`,
+        `> **Claim ID:** #${claim.id}`,
+        `**Diproses oleh:** <@${actorId}>`
       ].join("\n"),
       allowedMentions: { parse: [] }
     });
