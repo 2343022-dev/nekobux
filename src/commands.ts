@@ -14,6 +14,10 @@ const commands = [
     .setName("riwayat")
     .setDescription("Lihat riwayat pembelian dan cashback Roblox kamu."),
   new SlashCommandBuilder()
+    .setName("test-gagal-claim")
+    .setDescription("Kirim preview gagal claim tanpa mengubah saldo atau klaim.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  new SlashCommandBuilder()
     .setName("test-payout-log")
     .setDescription("Menguji banner dan pengiriman payout log.")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),

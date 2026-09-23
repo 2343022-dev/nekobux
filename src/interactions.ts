@@ -489,6 +489,64 @@ async function handleCommand(
     return;
   }
 
+  if (interaction.commandName === "test-gagal-claim") {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    const failedClaimChannelId = "1550796997148287098";
+    const channel = await client.channels.fetch(failedClaimChannelId);
+
+    if (!channel?.isSendable()) {
+      await interaction.editReply(
+        "\u274C Channel gagal-claim tidak ditemukan atau bot tidak dapat mengirim pesan."
+      );
+      return;
+    }
+
+    const link = await getLinkByDiscord(interaction.user.id);
+    const robloxUserId = link?.robloxUserId ?? 1;
+    const robloxUsername = link?.robloxUsername ?? interaction.user.username;
+    const avatarUrl = link
+      ? await getAvatarThumbnail(link.robloxUserId).catch(() => null)
+      : interaction.user.displayAvatarURL({ extension: "png", size: 256 });
+
+    const card = await renderClaimLogCard({
+      variant: "failed",
+      claimId: 456,
+      discordUserId: interaction.user.id,
+      discordName: interaction.user.username,
+      robloxUserId,
+      robloxUsername,
+      amountRobux: 100,
+      purchaseCount: 2,
+      avatarUrl,
+      reason: "User keluar Community sebelum pencairan.",
+      createdAt: new Date()
+    });
+
+    await channel.send({
+      content: [
+        "## \u274C PREVIEW GAGAL CLAIM",
+        "**Ini hanya preview - tidak ada klaim atau saldo yang diubah.**",
+        `> **User:** <@${interaction.user.id}>`,
+        `> **Akun Roblox:** @${robloxUsername}`,
+        "> **Claim ID:** #456",
+        "> **Saldo dikembalikan:** 100 Robux",
+        "> **Alasan:** User keluar Community sebelum pencairan."
+      ].join("\n"),
+      files: [
+        new AttachmentBuilder(card, {
+          name: `gagal-claim-preview-${Date.now()}.png`
+        })
+      ],
+      allowedMentions: { parse: [] }
+    });
+
+    await interaction.editReply(
+      `\u2705 Preview gagal claim berhasil dikirim ke <#${failedClaimChannelId}>.`
+    );
+    return;
+  }
+
   if (interaction.commandName === "test-payout-log") {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
