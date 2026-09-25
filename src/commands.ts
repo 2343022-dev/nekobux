@@ -1,4 +1,6 @@
 import {
+  ApplicationCommandType,
+  ContextMenuCommandBuilder,
   PermissionFlagsBits,
   REST,
   Routes,
@@ -7,6 +9,10 @@ import {
 import { config } from "./config.js";
 
 const commands = [
+  new ContextMenuCommandBuilder()
+    .setName("Tolak Bukti Claim")
+    .setType(ApplicationCommandType.Message)
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   new SlashCommandBuilder()
     .setName("saldo")
     .setDescription("Lihat saldo cashback Roblox kamu."),

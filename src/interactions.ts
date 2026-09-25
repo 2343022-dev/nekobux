@@ -18,6 +18,10 @@ import {
 } from "discord.js";
 import { sendAdminAuditLog } from "./adminAudit.js";
 import { config } from "./config.js";
+import {
+  handleRejectClaimModal,
+  openRejectClaimModal
+} from "./rejectedClaim.js";
 import { renderBalanceCard } from "./balanceCard.js";
 import { renderClaimLogCard } from "./claimLogCard.js";
 import {
@@ -99,6 +103,22 @@ function verificationSuccessRows(
 
 export async function handleInteraction(interaction: Interaction, client: Client): Promise<void> {
   try {
+    if (
+      interaction.isMessageContextMenuCommand() &&
+      interaction.commandName === "Tolak Bukti Claim"
+    ) {
+      await openRejectClaimModal(interaction);
+      return;
+    }
+
+    if (
+      interaction.isModalSubmit() &&
+      interaction.customId.startsWith("reject-claim-evidence:")
+    ) {
+      await handleRejectClaimModal(interaction, client);
+      return;
+    }
+
     if (interaction.isChatInputCommand()) {
       await handleCommand(interaction, client);
       return;
