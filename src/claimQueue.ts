@@ -209,7 +209,7 @@ export async function sendPayoutLog(
 ): Promise<void> {
   if (!config.payoutLogChannelId) return;
 
-  const channel = await client.channels.fetch(config.payoutLogChannelId);
+  const channel = await client.channels.fetch(config.payoutSuccessChannelId);
   if (!channel?.isSendable()) {
     throw new Error("Channel payout-log tidak ditemukan atau bot tidak dapat mengirim pesan.");
   }

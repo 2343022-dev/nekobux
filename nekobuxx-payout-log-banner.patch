@@ -1,0 +1,725 @@
+diff --git a/src/adminAudit.ts b/src/adminAudit.ts
+index 79c4e06..3af606e 100644
+--- a/src/adminAudit.ts
++++ b/src/adminAudit.ts
+@@ -54,10 +54,10 @@ export async function sendAdminAuditLog(
+         createdAt
+       });
+       await channel.send({
+-        content: `🗂️ **${input.title}**`,
++        content: `💸 **PAYOUT LOG • ${input.title}**`,
+         files: [
+           new AttachmentBuilder(card, {
+-            name: `audit-${input.command}-${createdAt.getTime()}.png`
++            name: `payout-log-${input.command}-${createdAt.getTime()}.png`
+           })
+         ],
+         allowedMentions: { parse: [] }
+@@ -81,7 +81,7 @@ export async function sendAdminAuditLog(
+         },
+         ...(input.fields ?? []).map(safeField)
+       )
+-      .setFooter({ text: "Nekobux Admin Audit • Jangan hapus pesan ini" })
++      .setFooter({ text: "Nekobux Payout Log • Jangan hapus pesan ini" })
+       .setTimestamp(createdAt);
+ 
+     await channel.send({
+diff --git a/src/adminAuditCard.ts b/src/adminAuditCard.ts
+index 2eea468..3c13eef 100644
+--- a/src/adminAuditCard.ts
++++ b/src/adminAuditCard.ts
+@@ -1,19 +1,5 @@
+-import sharp from "sharp";
+ import type { APIEmbedField } from "discord.js";
+-import { escapeXml, truncate } from "./utils.js";
+-
+-async function imageDataUri(url: string | null): Promise<string> {
+-  if (!url) return "";
+-  try {
+-    const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+-    if (!response.ok) return "";
+-    const contentType = response.headers.get("content-type") || "image/png";
+-    const data = Buffer.from(await response.arrayBuffer()).toString("base64");
+-    return `data:${contentType};base64,${data}`;
+-  } catch {
+-    return "";
+-  }
+-}
++import { renderNekobuxLogCard } from "./logCard.js";
+ 
+ function plain(value: string): string {
+   return value
+@@ -27,24 +13,7 @@ function plain(value: string): string {
+     .trim();
+ }
+ 
+-function fieldCard(field: APIEmbedField, index: number): string {
+-  const column = index % 2;
+-  const row = Math.floor(index / 2);
+-  const x = 425 + column * 365;
+-  const y = 171 + row * 106;
+-  const value = truncate(plain(field.value), 31);
+-  return `
+-    <rect x="${x}" y="${y}" width="340" height="88" rx="20"
+-      fill="#eeeae7" stroke="#c5bdbb" stroke-width="2"/>
+-    <text x="${x + 22}" y="${y + 30}" class="fieldLabel">
+-      ${escapeXml(truncate(plain(field.name).toUpperCase(), 28))}
+-    </text>
+-    <text x="${x + 22}" y="${y + 63}" class="fieldValue">
+-      ${escapeXml(value)}
+-    </text>`;
+-}
+-
+-export async function renderAdminAuditCard(input: {
++export function renderAdminAuditCard(input: {
+   title: string;
+   command: string;
+   adminName: string;
+@@ -54,96 +23,24 @@ export async function renderAdminAuditCard(input: {
+   fields: APIEmbedField[];
+   createdAt: Date;
+ }): Promise<Buffer> {
+-  const avatar = await imageDataUri(input.adminAvatarUrl);
+   const accent = `#${input.color.toString(16).padStart(6, "0").slice(-6)}`;
+-  const date = new Intl.DateTimeFormat("id-ID", {
+-    timeZone: "Asia/Jakarta",
+-    dateStyle: "long",
+-    timeStyle: "short"
+-  }).format(input.createdAt);
+-  const visibleFields = input.fields.slice(0, 8);
+-  const avatarMarkup = avatar
+-    ? `<image href="${avatar}" x="95" y="156" width="220" height="220"
+-         preserveAspectRatio="xMidYMid slice" clip-path="url(#avatarClip)"/>`
+-    : `<circle cx="205" cy="266" r="110" fill="#817a7d"/>
+-       <text x="205" y="290" text-anchor="middle" class="avatarFallback">?</text>`;
+-
+-  const svg = `
+-  <svg width="1200" height="675" viewBox="0 0 1200 675"
+-    xmlns="http://www.w3.org/2000/svg">
+-    <defs>
+-      <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+-        <stop offset="0" stop-color="#f8f4f1"/>
+-        <stop offset="0.6" stop-color="#ddd7d4"/>
+-        <stop offset="1" stop-color="#bbb5b5"/>
+-      </linearGradient>
+-      <linearGradient id="brand" x1="0" y1="0" x2="0" y2="1">
+-        <stop offset="0" stop-color="#ffffff"/>
+-        <stop offset="0.5" stop-color="#f6ebe7"/>
+-        <stop offset="1" stop-color="#c2b1ab"/>
+-      </linearGradient>
+-      <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+-        <feDropShadow dx="0" dy="12" stdDeviation="16"
+-          flood-color="#514b4e" flood-opacity="0.23"/>
+-      </filter>
+-      <clipPath id="avatarClip">
+-        <circle cx="205" cy="266" r="110"/>
+-      </clipPath>
+-    </defs>
+-
+-    <style>
+-      text { font-family: 'Fredoka', 'DejaVu Sans', sans-serif; font-weight: 700; }
+-      .brandDepth { font-size: 50px; fill: #968783; stroke: #857673; stroke-width: 3px; paint-order: stroke fill; }
+-      .brand { font-size: 50px; fill: url(#brand); stroke: #fffaf7; stroke-width: 2px; paint-order: stroke fill; }
+-      .eyebrow { font-size: 15px; letter-spacing: 2.3px; fill: #6a6467; }
+-      .profileLabel { font-size: 15px; letter-spacing: 1.4px; fill: #d8d0d1; }
+-      .adminName { font-size: 31px; fill: #fffaf8; }
+-      .adminId { font-size: 16px; fill: #d7cfd1; }
+-      .command { font-size: 22px; fill: #fffaf8; }
+-      .actionLabel { font-size: 15px; letter-spacing: 1.7px; fill: #70696c; }
+-      .actionTitle { font-size: 24px; fill: #4f494c; }
+-      .fieldLabel { font-size: 14px; letter-spacing: 0.7px; fill: #7a7275; }
+-      .fieldValue { font-size: 17px; fill: #504a4d; }
+-      .footer { font-size: 15px; fill: #686164; }
+-      .avatarFallback { font-size: 100px; fill: #ded7d5; }
+-    </style>
+-
+-    <g filter="url(#shadow)">
+-      <rect x="20" y="20" width="1160" height="635" rx="42" fill="url(#background)"/>
+-      <path d="M20 20 H385 V655 H20 Z" fill="#686367"/>
+-      <path d="M20 566 C155 520 260 690 405 618 V655 H20 Z"
+-        fill="${accent}" fill-opacity="0.2"/>
+-    </g>
+-    <rect x="22" y="22" width="1156" height="631" rx="40"
+-      fill="none" stroke="#777174" stroke-opacity="0.5" stroke-width="2"/>
+-    <rect x="385" y="20" width="9" height="635" fill="${accent}"/>
+-
+-    <text x="425" y="75" class="brandDepth">NEKOBUX</text>
+-    <text x="421" y="69" class="brand">NEKOBUX</text>
+-    <text x="421" y="101" class="eyebrow">SECURE ADMIN AUDIT</text>
+-
+-    <text x="68" y="82" class="profileLabel">ACTION PERFORMED BY</text>
+-    ${avatarMarkup}
+-    <circle cx="205" cy="266" r="112" fill="none" stroke="#f2e7e4" stroke-width="4"/>
+-    <text x="68" y="425" class="adminName">${escapeXml(truncate(input.adminName, 18))}</text>
+-    <text x="68" y="458" class="adminId">DISCORD ID ${input.adminDiscordId}</text>
+-    <rect x="68" y="492" width="270" height="2" fill="#ffffff" fill-opacity="0.17"/>
+-    <text x="68" y="530" class="profileLabel">COMMAND</text>
+-    <text x="68" y="566" class="command">/${escapeXml(truncate(input.command, 24))}</text>
+-
+-    <text x="790" y="65" class="actionLabel">RECORDED ACTION</text>
+-    <text x="790" y="103" class="actionTitle">${escapeXml(truncate(plain(input.title), 25))}</text>
+-    <rect x="421" y="128" width="719" height="5" rx="2.5" fill="${accent}"/>
+-
+-    ${visibleFields.map(fieldCard).join("")}
+-
+-    <line x1="421" y1="607" x2="1140" y2="607"
+-      stroke="#6f696c" stroke-opacity="0.25"/>
+-    <text x="421" y="637" class="footer">${escapeXml(date)} WIB</text>
+-    <text x="1140" y="637" text-anchor="end" class="footer">
+-      VERIFIED • TRACKED • SECURE
+-    </text>
+-  </svg>`;
+ 
+-  return sharp(Buffer.from(svg)).png().toBuffer();
++  return renderNekobuxLogCard({
++    section: "PAYOUT LOG",
++    title: plain(input.title),
++    badge: `/${input.command}`,
++    profileName: input.adminName,
++    profileId: `Discord ID ${input.adminDiscordId}`,
++    profileAvatarUrl: input.adminAvatarUrl,
++    accent,
++    fields: input.fields.map((field) => ({
++      label: plain(field.name),
++      value: plain(field.value)
++    })),
++    bottomLabel: "DIPROSES OLEH",
++    bottomValue: input.adminName,
++    bottomRightLabel: "LOG STATUS",
++    bottomRightValue: "TERCATAT",
++    createdAt: input.createdAt
++  });
+ }
+diff --git a/src/claimLogCard.ts b/src/claimLogCard.ts
+new file mode 100644
+index 0000000..6eb9064
+--- /dev/null
++++ b/src/claimLogCard.ts
+@@ -0,0 +1,50 @@
++import { renderNekobuxLogCard } from "./logCard.js";
++
++export interface ClaimLogCardInput {
++  variant: "payout" | "failed";
++  claimId: number;
++  discordUserId: string;
++  robloxUserId: number;
++  robloxUsername: string;
++  amountRobux: number;
++  purchaseCount: number;
++  avatarUrl: string | null;
++  actorName?: string;
++  reason?: string;
++  createdAt: Date;
++}
++
++export function renderClaimLogCard(input: ClaimLogCardInput): Promise<Buffer> {
++  const failed = input.variant === "failed";
++
++  return renderNekobuxLogCard({
++    section: failed ? "GAGAL CLAIM" : "PAYOUT LOG",
++    title: failed
++      ? `Klaim #${input.claimId} Dibatalkan`
++      : `Klaim #${input.claimId} Berhasil Dibayar`,
++    badge: failed ? "CLAIM DIBATALKAN" : "PAYOUT BERHASIL",
++    profileName: `@${input.robloxUsername}`,
++    profileId: `Roblox ID ${input.robloxUserId}`,
++    profileAvatarUrl: input.avatarUrl,
++    accent: failed ? "#b9646b" : "#708f78",
++    fields: [
++      { label: "Discord User", value: `ID ${input.discordUserId}` },
++      { label: "Username Roblox", value: `@${input.robloxUsername}` },
++      { label: "Roblox User ID", value: String(input.robloxUserId) },
++      { label: "Jumlah Pembelian", value: `${input.purchaseCount} item` },
++      {
++        label: failed ? "Status Saldo" : "Diproses Oleh",
++        value: failed ? "Dikembalikan ke saldo" : input.actorName ?? "Admin"
++      },
++      {
++        label: failed ? "Alasan" : "Status",
++        value: failed ? input.reason ?? "Tidak diketahui" : "Selesai dibayar"
++      }
++    ],
++    bottomLabel: failed ? "SALDO CASHBACK" : "STATUS PAYOUT",
++    bottomValue: failed ? "BISA DIKLAIM ULANG" : "BERHASIL DIBAYAR",
++    bottomRightLabel: failed ? "DIKEMBALIKAN" : "TOTAL PAYOUT",
++    bottomRightValue: `R$ ${input.amountRobux.toLocaleString("id-ID")}`,
++    createdAt: input.createdAt
++  });
++}
+diff --git a/src/claimQueue.ts b/src/claimQueue.ts
+index 691b0b9..f92f19d 100644
+--- a/src/claimQueue.ts
++++ b/src/claimQueue.ts
+@@ -1,10 +1,12 @@
+ import {
++  AttachmentBuilder,
+   ChatInputCommandInteraction,
+   Client,
+   EmbedBuilder,
+   MessageFlags
+ } from "discord.js";
+ import { sendAdminAuditLog } from "./adminAudit.js";
++import { renderClaimLogCard } from "./claimLogCard.js";
+ import { config } from "./config.js";
+ import {
+   cancelManagedClaim,
+@@ -23,6 +25,7 @@ import {
+   type RobloxLink
+ } from "./db.js";
+ import { refreshMembership } from "./membership.js";
++import { getAvatarThumbnail } from "./roblox.js";
+ import { discordTimestamp, errorMessage } from "./utils.js";
+ 
+ function communityReadyAt(link: RobloxLink): Date | null {
+@@ -139,7 +142,42 @@ async function sendFailureNotification(client: Client, claim: ClaimRecord): Prom
+       ].join("\n")
+     )
+     .setTimestamp(claim.closedAt ?? new Date());
+-  const message = await channel.send({ embeds: [embed], allowedMentions: { parse: [] } });
++  let message;
++  try {
++    const avatarUrl = await getAvatarThumbnail(claim.robloxUserId).catch(() => null);
++    const card = await renderClaimLogCard({
++      variant: "failed",
++      claimId: claim.id,
++      discordUserId: claim.discordUserId,
++      robloxUserId: claim.robloxUserId,
++      robloxUsername: username,
++      amountRobux: claim.amountRobux,
++      purchaseCount: purchases.length,
++      avatarUrl,
++      reason: claim.failureReason ?? "Tidak diketahui",
++      createdAt: claim.closedAt ?? new Date()
++    });
++    message = await channel.send({
++      content: [
++        "## ❌ CLAIM CASHBACK GAGAL",
++        `<@${claim.discordUserId}> • Klaim **#${claim.id}** dibatalkan.`,
++        `Saldo **${claim.amountRobux.toLocaleString("id-ID")} Robux** sudah dikembalikan dan tidak hangus.`,
++        `Alasan: ${claim.failureReason ?? "Tidak diketahui"}`
++      ].join("\n"),
++      files: [
++        new AttachmentBuilder(card, {
++          name: `gagal-claim-${claim.id}.png`
++        })
++      ],
++      allowedMentions: { parse: [] }
++    });
++  } catch (cardError) {
++    console.error(`[failed-claim-card] #${claim.id}: ${errorMessage(cardError)}`);
++    message = await channel.send({
++      embeds: [embed],
++      allowedMentions: { parse: [] }
++    });
++  }
+   if (claim.readyChannelId && claim.readyMessageId) {
+     const queueChannel = await client.channels.fetch(claim.readyChannelId).catch(() => null);
+     if (queueChannel?.isSendable()) {
+@@ -162,6 +200,69 @@ async function cancelForQueue(
+   return cancelManagedClaim(claimId, reason);
+ }
+ 
++export async function sendPayoutLog(
++  client: Client,
++  claim: ClaimRecord,
++  link: RobloxLink,
++  actorId: string,
++  actorName: string
++): Promise<void> {
++  if (!config.payoutLogChannelId) return;
++
++  const channel = await client.channels.fetch(config.payoutLogChannelId);
++  if (!channel?.isSendable()) {
++    throw new Error("Channel payout-log tidak ditemukan atau bot tidak dapat mengirim pesan.");
++  }
++
++  const [purchases, avatarUrl] = await Promise.all([
++    getClaimPurchases(claim.id),
++    getAvatarThumbnail(claim.robloxUserId).catch(() => null)
++  ]);
++
++  try {
++    const card = await renderClaimLogCard({
++      variant: "payout",
++      claimId: claim.id,
++      discordUserId: claim.discordUserId,
++      robloxUserId: claim.robloxUserId,
++      robloxUsername: link.robloxUsername,
++      amountRobux: claim.amountRobux,
++      purchaseCount: purchases.length,
++      avatarUrl,
++      actorName,
++      createdAt: claim.closedAt ?? new Date()
++    });
++
++    await channel.send({
++      content: [
++        "## 💸 PAYOUT LOG",
++        `Klaim **#${claim.id}** milik <@${claim.discordUserId}> telah selesai dibayar.`,
++        `Akun Roblox: **@${link.robloxUsername}** • Nominal: **${claim.amountRobux.toLocaleString("id-ID")} Robux**`,
++        `Diproses oleh: <@${actorId}>`
++      ].join("\n"),
++      files: [
++        new AttachmentBuilder(card, {
++          name: `payout-log-${claim.id}.png`
++        })
++      ],
++      allowedMentions: { parse: [] }
++    });
++  } catch (cardError) {
++    console.error(`[payout-log-card] #${claim.id}: ${errorMessage(cardError)}`);
++    await channel.send({
++      content: [
++        "## 💸 PAYOUT LOG",
++        `✅ Klaim **#${claim.id}** selesai dibayar.`,
++        `Discord: <@${claim.discordUserId}>`,
++        `Roblox: **@${link.robloxUsername}** (ID ${claim.robloxUserId})`,
++        `Nominal: **${claim.amountRobux.toLocaleString("id-ID")} Robux**`,
++        `Admin: <@${actorId}>`
++      ].join("\n"),
++      allowedMentions: { parse: [] }
++    });
++  }
++}
++
+ export async function processClaimQueue(client: Client, onlyClaimId?: number): Promise<void> {
+   const claims = await listManagedActiveClaims(onlyClaimId);
+   for (const originalClaim of claims) {
+@@ -347,23 +448,15 @@ export async function completeClaimPayment(
+   await updateReadyMessage(client, paidClaim, "paid", interaction.user.id).catch((error) =>
+     console.error(`[claim-paid-message] #${claim.id}: ${errorMessage(error)}`)
+   );
+-  if (config.payoutLogChannelId) {
+-    const log = await client.channels.fetch(config.payoutLogChannelId).catch(() => null);
+-    if (log?.isSendable()) {
+-      await log.send({
+-        content: [
+-          `✅ Klaim **#${claim.id}** selesai dibayar.`,
+-          `Discord: <@${claim.discordUserId}>`,
+-          `Roblox: **@${link.robloxUsername}** (ID ${claim.robloxUserId})`,
+-          `Nominal: **${claim.amountRobux.toLocaleString("id-ID")} Robux**`,
+-          `Admin: <@${interaction.user.id}>`
+-        ].join("\n"),
+-        allowedMentions: { parse: [] }
+-      }).catch((error) =>
+-        console.error(`[payout-log] #${claim.id}: ${errorMessage(error)}`)
+-      );
+-    }
+-  }
++  await sendPayoutLog(
++    client,
++    paidClaim,
++    link,
++    interaction.user.id,
++    interaction.user.globalName ?? interaction.user.username
++  ).catch((error) =>
++    console.error(`[payout-log] #${claim.id}: ${errorMessage(error)}`)
++  );
+   await interaction.editReply(
+     `✅ Klaim **#${claim.id}** sebesar **${claim.amountRobux.toLocaleString("id-ID")} Robux** berhasil ditandai dibayar.`
+   );
+diff --git a/src/commands.ts b/src/commands.ts
+index fcd0c1d..8215412 100644
+--- a/src/commands.ts
++++ b/src/commands.ts
+@@ -14,8 +14,8 @@ const commands = [
+     .setName("riwayat")
+     .setDescription("Lihat riwayat pembelian dan cashback Roblox kamu."),
+   new SlashCommandBuilder()
+-    .setName("test-audit-log")
+-    .setDescription("Menguji pengiriman audit log admin.")
++    .setName("test-payout-log")
++    .setDescription("Menguji banner dan pengiriman payout log.")
+     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+   new SlashCommandBuilder()
+     .setName("panel")
+diff --git a/src/interactions.ts b/src/interactions.ts
+index a505c1e..48c6c4a 100644
+--- a/src/interactions.ts
++++ b/src/interactions.ts
+@@ -488,18 +488,18 @@ async function handleCommand(
+     return;
+   }
+ 
+-  if (interaction.commandName === "test-audit-log") {
++  if (interaction.commandName === "test-payout-log") {
+     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+ 
+     const sent = await sendAdminAuditLog(client, {
+-      title: "🧪 Pengujian Audit Log",
+-      command: "test-audit-log",
++      title: "🧪 Pengujian Payout Log",
++      command: "test-payout-log",
+       adminDiscordId: interaction.user.id,
+       color: 0x8f7f84,
+       fields: [
+         {
+           name: "Hasil",
+-          value: "Channel audit dapat menerima pesan dari bot."
++          value: "Channel payout dapat menerima banner dari bot."
+         },
+         { name: "Sumber", value: `<#${interaction.channelId}>` }
+       ]
+@@ -507,8 +507,8 @@ async function handleCommand(
+ 
+     await interaction.editReply(
+       sent
+-        ? `✅ Audit log berhasil dikirim ke <#${config.payoutLogChannelId}>.`
+-        : "❌ Audit log gagal dikirim. Periksa PAYOUT_LOG_CHANNEL_ID dan izin bot."
++        ? `✅ Payout log berhasil dikirim ke <#${config.payoutLogChannelId}>.`
++        : "❌ Payout log gagal dikirim. Periksa PAYOUT_LOG_CHANNEL_ID dan izin bot."
+     );
+     return;
+   }
+diff --git a/src/logCard.ts b/src/logCard.ts
+new file mode 100644
+index 0000000..f2131a6
+--- /dev/null
++++ b/src/logCard.ts
+@@ -0,0 +1,207 @@
++import { join } from "node:path";
++import sharp from "sharp";
++import { escapeXml, truncate } from "./utils.js";
++
++const CARD_WIDTH = 1063;
++const CARD_HEIGHT = 522;
++const ARTWORK_PATH = join(process.cwd(), "assets", "purchase-card-template.png");
++
++export interface NekobuxLogField {
++  label: string;
++  value: string;
++}
++
++export interface NekobuxLogCardInput {
++  section: string;
++  title: string;
++  badge: string;
++  profileName: string;
++  profileId: string;
++  profileAvatarUrl: string | null;
++  accent: string;
++  fields: NekobuxLogField[];
++  bottomLabel: string;
++  bottomValue: string;
++  bottomRightLabel: string;
++  bottomRightValue: string;
++  createdAt: Date;
++}
++
++let artworkPromise: Promise<Buffer> | null = null;
++
++function loadArtwork(): Promise<Buffer> {
++  if (!artworkPromise) {
++    artworkPromise = sharp(ARTWORK_PATH)
++      .resize(CARD_WIDTH, CARD_HEIGHT, { fit: "fill" })
++      .png()
++      .toBuffer();
++  }
++  return artworkPromise;
++}
++
++async function imageDataUri(url: string | null): Promise<string> {
++  if (!url) return "";
++  try {
++    const response = await fetch(url, {
++      signal: AbortSignal.timeout(10_000)
++    });
++    if (!response.ok) return "";
++    const contentType = response.headers.get("content-type") || "image/png";
++    const data = Buffer.from(await response.arrayBuffer()).toString("base64");
++    return `data:${contentType};base64,${data}`;
++  } catch {
++    return "";
++  }
++}
++
++function fieldMarkup(field: NekobuxLogField, index: number): string {
++  const column = index % 2;
++  const row = Math.floor(index / 2);
++  const x = 369 + column * 334;
++  const y = 311 + row * 44;
++
++  return `
++    <rect x="${x}" y="${y}" width="323" height="38" rx="11"
++      fill="url(#subPanel)" stroke="#fffaf7" stroke-opacity="0.58"/>
++    <text x="${x + 13}" y="${y + 14}" class="fieldLabel">
++      ${escapeXml(truncate(field.label.toUpperCase(), 24))}
++    </text>
++    <text x="${x + 13}" y="${y + 30}" class="fieldValue">
++      ${escapeXml(truncate(field.value, 39))}
++    </text>`;
++}
++
++function avatarMarkup(uri: string): string {
++  if (uri) {
++    return `<image href="${uri}" x="371" y="243" width="52" height="52"
++      preserveAspectRatio="xMidYMid slice" clip-path="url(#profileClip)"/>`;
++  }
++
++  return `<circle cx="397" cy="269" r="26" fill="#756e70"/>
++    <text x="397" y="277" text-anchor="middle" class="avatarFallback">N</text>`;
++}
++
++export async function renderNekobuxLogCard(
++  input: NekobuxLogCardInput
++): Promise<Buffer> {
++  const [artwork, profileAvatar] = await Promise.all([
++    loadArtwork(),
++    imageDataUri(input.profileAvatarUrl)
++  ]);
++
++  const date = new Intl.DateTimeFormat("id-ID", {
++    timeZone: "Asia/Jakarta",
++    day: "2-digit",
++    month: "2-digit",
++    year: "numeric",
++    hour: "2-digit",
++    minute: "2-digit"
++  }).format(input.createdAt);
++
++  const fields = input.fields.slice(0, 6);
++  const overlay = `
++  <svg width="${CARD_WIDTH}" height="${CARD_HEIGHT}"
++    viewBox="0 0 ${CARD_WIDTH} ${CARD_HEIGHT}"
++    xmlns="http://www.w3.org/2000/svg">
++    <defs>
++      <clipPath id="profileClip">
++        <circle cx="397" cy="269" r="26"/>
++      </clipPath>
++      <linearGradient id="mainPanel" x1="0" y1="0" x2="1" y2="1">
++        <stop offset="0" stop-color="#d3c9c6"/>
++        <stop offset="0.5" stop-color="#bdb4b2"/>
++        <stop offset="1" stop-color="#aaa2a1"/>
++      </linearGradient>
++      <linearGradient id="subPanel" x1="0" y1="0" x2="0" y2="1">
++        <stop offset="0" stop-color="#f3e9e5" stop-opacity="0.94"/>
++        <stop offset="1" stop-color="#d4cbca" stop-opacity="0.94"/>
++      </linearGradient>
++      <linearGradient id="bottomPanel" x1="0" y1="0" x2="1" y2="0">
++        <stop offset="0" stop-color="#6e6869"/>
++        <stop offset="0.52" stop-color="#8a8283"/>
++        <stop offset="1" stop-color="#625d5e"/>
++      </linearGradient>
++      <filter id="panelShadow" x="-20%" y="-30%" width="140%" height="160%">
++        <feDropShadow dx="0" dy="7" stdDeviation="9"
++          flood-color="#292324" flood-opacity="0.34"/>
++      </filter>
++      <filter id="softGlow" x="-40%" y="-80%" width="180%" height="260%">
++        <feDropShadow dx="0" dy="0" stdDeviation="3"
++          flood-color="#fff7ef" flood-opacity="0.8"/>
++      </filter>
++    </defs>
++
++    <style>
++      text { font-family: 'DejaVu Sans', sans-serif; }
++      .section { fill: #756e70; font-size: 10px; font-weight: 700; letter-spacing: 1.6px; }
++      .title { fill: #4c4748; font-size: 19px; font-weight: 700; }
++      .profileName { fill: #514b4c; font-size: 13px; font-weight: 700; }
++      .profileId { fill: #797173; font-size: 9px; font-weight: 500; }
++      .badge { fill: #fffaf7; font-size: 10px; font-weight: 700; letter-spacing: 0.7px; }
++      .fieldLabel { fill: #857c7e; font-size: 8px; font-weight: 600; letter-spacing: 0.5px; }
++      .fieldValue { fill: #504a4b; font-size: 11px; font-weight: 700; }
++      .bottomLabel { fill: #ded5d3; font-size: 9px; font-weight: 600; letter-spacing: 1px; }
++      .bottomValue { fill: #fffaf7; font-size: 16px; font-weight: 700; }
++      .bottomRightValue { fill: #fff5ed; font-size: 20px; font-weight: 700; }
++      .date { fill: #756e70; font-size: 8px; font-weight: 600; }
++      .avatarFallback { fill: #fffaf7; font-size: 20px; font-weight: 700; }
++    </style>
++
++    <rect x="356" y="226" width="686" height="224" rx="26"
++      fill="url(#mainPanel)" stroke="#fff8f3" stroke-width="2"
++      filter="url(#panelShadow)"/>
++    <rect x="363" y="233" width="672" height="210" rx="21"
++      fill="none" stroke="#ffffff" stroke-opacity="0.48"/>
++
++    <rect x="365" y="238" width="670" height="64" rx="18"
++      fill="url(#subPanel)" stroke="#fffaf7" stroke-opacity="0.72"/>
++    ${avatarMarkup(profileAvatar)}
++    <circle cx="397" cy="269" r="26" fill="none"
++      stroke="#fffaf7" stroke-width="2"/>
++
++    <text x="436" y="255" class="section">${escapeXml(truncate(input.section, 28))}</text>
++    <text x="436" y="280" class="title">${escapeXml(truncate(input.title, 37))}</text>
++    <text x="436" y="295" class="date">
++      ${escapeXml(truncate(input.profileName, 18))} • ${escapeXml(date)} WIB
++    </text>
++
++    <rect x="771" y="250" width="248" height="39" rx="19.5"
++      fill="${input.accent}" stroke="#fffaf7" stroke-opacity="0.62"/>
++    <text x="895" y="275" class="badge" text-anchor="middle">
++      ${escapeXml(truncate(input.badge, 27))}
++    </text>
++
++    ${fields.map(fieldMarkup).join("")}
++
++    <rect x="356" y="456" width="686" height="61" rx="27"
++      fill="url(#bottomPanel)" stroke="#fff8f3" stroke-opacity="0.82"
++      stroke-width="1.8" filter="url(#panelShadow)"/>
++
++    <circle cx="389" cy="486" r="17" fill="${input.accent}"
++      stroke="#fff8ef" stroke-width="2"/>
++    <circle cx="389" cy="486" r="6" fill="#fff8ef"/>
++
++    <text x="417" y="479" class="bottomLabel">
++      ${escapeXml(truncate(input.bottomLabel, 32))}
++    </text>
++    <text x="417" y="501" class="bottomValue">
++      ${escapeXml(truncate(input.bottomValue, 31))}
++    </text>
++
++    <rect x="786" y="464" width="245" height="45" rx="22.5"
++      fill="${input.accent}" fill-opacity="0.8"
++      stroke="#fffaf7" stroke-opacity="0.58"/>
++    <text x="804" y="480" class="bottomLabel">
++      ${escapeXml(truncate(input.bottomRightLabel, 17))}
++    </text>
++    <text x="1013" y="498" class="bottomRightValue"
++      text-anchor="end" filter="url(#softGlow)">
++      ${escapeXml(truncate(input.bottomRightValue, 17))}
++    </text>
++  </svg>`;
++
++  return sharp(artwork)
++    .composite([{ input: Buffer.from(overlay), top: 0, left: 0 }])
++    .png()
++    .toBuffer();
++}
+diff --git a/src/tickets.ts b/src/tickets.ts
+index 660ddaf..09d58a1 100644
+--- a/src/tickets.ts
++++ b/src/tickets.ts
+@@ -10,6 +10,7 @@ import {
+   MessageFlags,
+   PermissionFlagsBits
+ } from "discord.js";
++import { sendPayoutLog } from "./claimQueue.js";
+ import { config } from "./config.js";
+ import {
+   getActiveClaim,
+@@ -224,11 +225,22 @@ export async function handleClaimAction(
+       `💸 Claim #${claimId} sebesar **${claim.amountRobux} Robux** telah dibayar oleh ${interaction.user}.`
+     );
+     if (config.payoutLogChannelId) {
+-      const log = await client.channels.fetch(config.payoutLogChannelId);
+-      if (log?.isSendable()) {
+-        await log.send(
+-          `✅ Claim **#${claimId}** • <@${claim.discordUserId}> • Roblox ID **${claim.robloxUserId}** • **${claim.amountRobux} R$** • ${purchases.length} item.`
++      const link = await getLinkByDiscord(claim.discordUserId);
++      if (link?.robloxUserId === claim.robloxUserId) {
++        await sendPayoutLog(
++          client,
++          claim,
++          link,
++          interaction.user.id,
++          interaction.user.globalName ?? interaction.user.username
+         );
++      } else {
++        const log = await client.channels.fetch(config.payoutLogChannelId);
++        if (log?.isSendable()) {
++          await log.send(
++            `💸 **PAYOUT LOG** • Claim **#${claimId}** • <@${claim.discordUserId}> • Roblox ID **${claim.robloxUserId}** • **${claim.amountRobux} R$** • ${purchases.length} item.`
++          );
++        }
+       }
+     }
+     return;
