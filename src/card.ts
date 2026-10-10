@@ -659,15 +659,17 @@ export async function renderPurchaseCard(input: {
   const overlay = `
   <svg xmlns="http://www.w3.org/2000/svg" width="1840" height="720" viewBox="0 0 1840 720">
     <defs>
-      <linearGradient id="background" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#a9a1a0"/>
-        <stop offset=".48" stop-color="#c1b8b6"/>
-        <stop offset="1" stop-color="#9a9291"/>
+      <linearGradient id="backgroundBase" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#a79e9d"/>
+        <stop offset=".48" stop-color="#b8afae"/>
+        <stop offset="1" stop-color="#938b8b"/>
       </linearGradient>
-
-      <filter id="backgroundBlur" x="-100%" y="-20%" width="300%" height="140%">
-        <feGaussianBlur stdDeviation="15"/>
-      </filter>
+      <linearGradient id="backgroundBeam" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#fffaf7" stop-opacity="0"/>
+        <stop offset=".45" stop-color="#fffaf7" stop-opacity=".24"/>
+        <stop offset=".55" stop-color="#fffaf7" stop-opacity=".24"/>
+        <stop offset="1" stop-color="#fffaf7" stop-opacity="0"/>
+      </linearGradient>
 
       <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
         <stop offset="0" stop-color="#e8ddda"/>
@@ -709,17 +711,17 @@ export async function renderPurchaseCard(input: {
       </style>
     </defs>
 
-    <!-- Latar opak: menutup semua teks contoh yang sudah ada pada template. -->
-    <rect width="1840" height="720" fill="url(#background)"/>
-    <g filter="url(#backgroundBlur)" opacity=".38">
-      <rect x="0" y="0" width="24" height="720" fill="#fffaf7"/>
-      <rect x="220" y="0" width="34" height="720" fill="#eee5e2"/>
-      <rect x="515" y="0" width="20" height="720" fill="#fffaf7"/>
-      <rect x="880" y="0" width="36" height="720" fill="#eee5e2"/>
-      <rect x="1280" y="0" width="24" height="720" fill="#fffaf7"/>
-      <rect x="1665" y="0" width="38" height="720" fill="#eee5e2"/>
-      <rect x="1810" y="0" width="22" height="720" fill="#fffaf7"/>
-    </g>
+    <!-- Background opak: menutupi seluruh tulisan bawaan template agar tidak tembus/double. -->
+    <rect width="1840" height="720" fill="url(#backgroundBase)"/>
+    <!-- Pantulan cahaya vertikal seperti referensi, tanpa teks dari gambar template. -->
+    <rect x="0" y="0" width="58" height="720" fill="url(#backgroundBeam)" opacity=".72"/>
+    <rect x="205" y="0" width="78" height="720" fill="url(#backgroundBeam)" opacity=".54"/>
+    <rect x="475" y="0" width="54" height="720" fill="url(#backgroundBeam)" opacity=".44"/>
+    <rect x="735" y="0" width="92" height="720" fill="url(#backgroundBeam)" opacity=".42"/>
+    <rect x="1030" y="0" width="62" height="720" fill="url(#backgroundBeam)" opacity=".5"/>
+    <rect x="1320" y="0" width="82" height="720" fill="url(#backgroundBeam)" opacity=".46"/>
+    <rect x="1635" y="0" width="72" height="720" fill="url(#backgroundBeam)" opacity=".55"/>
+    <rect x="1780" y="0" width="60" height="720" fill="url(#backgroundBeam)" opacity=".5"/>
 
     <!-- Badge header -->
     <g filter="url(#glow)">
