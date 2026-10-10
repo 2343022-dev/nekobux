@@ -42,3 +42,4 @@ export const config = {
   databaseUrl: required("DATABASE_URL"),
   databaseSsl: process.env.DATABASE_SSL?.toLowerCase() === "true"
 } as const;
+
