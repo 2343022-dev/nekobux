@@ -4,13 +4,14 @@ import type { RobloxLink } from "./db.js";
 import type { BalanceSummary, PurchaseRecord } from "./types.js";
 import { escapeXml, truncate } from "./utils.js";
 
-const CARD_WIDTH = 1063;
-const CARD_HEIGHT = 522;
+const CARD_WIDTH = 1840;
+const CARD_HEIGHT = 720;
 const IMAGE_REQUEST_TIMEOUT_MS = 25_000;
+
 const ARTWORK_PATH = join(
   process.cwd(),
   "assets",
-  "purchase-card-template.png" // Pastikan base template di sini adalah background silver polos dengan teks TRUSTED, CASHBACK 20%, FAST di atasnya
+  "purchase-card-template.png"
 );
 
 let artworkPromise: Promise<Buffer> | null = null;
@@ -68,6 +69,7 @@ async function itemImageDataUri(
         const response = await fetch(endpoint, {
           signal: AbortSignal.timeout(IMAGE_REQUEST_TIMEOUT_MS)
         });
+
         if (!response.ok) return "";
 
         const payload = (await response.json()) as {
@@ -78,6 +80,7 @@ async function itemImageDataUri(
         };
 
         const thumbnail = payload.data?.[0];
+
         if (thumbnail?.state !== "Completed" || !thumbnail.imageUrl) {
           return "";
         }
@@ -125,48 +128,122 @@ function dynamicImage(input: {
   }
 
   return `<g clip-path="url(#${input.clipId})">
-    <rect x="${input.x}" y="${input.y}" width="${input.width}" height="${input.height}" fill="url(#placeholderFill)" />
-    <circle cx="${input.x + input.width / 2}" cy="${input.y + input.height / 2 - 8}" r="22" fill="#fffaf7" fill-opacity="0.68" />
-    <text x="${input.x + input.width / 2}" y="${input.y + input.height - 14}" text-anchor="middle" class="fallbackText">${escapeXml(input.fallback)}</text>
+    <rect
+      x="${input.x}"
+      y="${input.y}"
+      width="${input.width}"
+      height="${input.height}"
+      fill="url(#placeholderFill)"
+    />
+    <circle
+      cx="${input.x + input.width / 2}"
+      cy="${input.y + input.height / 2 - 8}"
+      r="22"
+      fill="#fffaf7"
+      fill-opacity="0.68"
+    />
+    <path
+      d="M ${input.x + input.width / 2 - 10} ${input.y + input.height / 2 - 18}
+         h 20 v 20 h -20 z
+         M ${input.x + input.width / 2 - 3} ${input.y + input.height / 2 - 11}
+         h 6 v 6 h -6 z"
+      fill="#6b6465"
+      fill-rule="evenodd"
+      transform="rotate(12 ${input.x + input.width / 2} ${input.y + input.height / 2 - 8})"
+    />
+    <text
+      x="${input.x + input.width / 2}"
+      y="${input.y + input.height - 14}"
+      text-anchor="middle"
+      class="fallbackText"
+    >${escapeXml(input.fallback)}</text>
   </g>`;
 }
 
 function valueFontSize(value: number, normal: number): number {
   const length = value.toLocaleString("id-ID").length;
+
   if (length >= 10) return normal - 7;
   if (length >= 8) return normal - 4;
   if (length >= 6) return normal - 2;
+
   return normal;
 }
 
-function robuxIcon(x: number, y: number, size: number, pink = false, colorOverride?: string): string {
+function robuxIcon(
+  x: number,
+  y: number,
+  size: number,
+  pink = false,
+  colorOverride?: string
+): string {
   const large = size >= 28;
-  const baseColor = colorOverride || (pink ? "#e6a0ad" : "#5b5556");
-  const outerColor = large ? colorOverride || (pink ? "#fff0ee" : "#fff8ef") : baseColor;
-  const innerColor = large ? colorOverride || (pink ? "#e6a0ad" : "#5b5556") : baseColor;
-  const centerColor = large ? colorOverride ? "#746d6e" : pink ? "#ffe9e8" : "#fff8ef" : "#eee5e2";
+
+  const baseColor =
+    colorOverride || (pink ? "#e6a0ad" : "#5b5556");
+
+  const outerColor = large
+    ? colorOverride || (pink ? "#fff0ee" : "#fff8ef")
+    : baseColor;
+
+  const innerColor = large
+    ? colorOverride || (pink ? "#e6a0ad" : "#5b5556")
+    : baseColor;
+
+  const centerColor = large
+    ? colorOverride
+      ? "#746d6e"
+      : pink
+        ? "#ffe9e8"
+        : "#fff8ef"
+    : "#eee5e2";
 
   const center = size / 2;
   const innerRadius = size * 0.29;
   const centerSize = size * 0.18;
 
   const outerPoints = [
-    `${center},1.5`, `${size - 2},${size * 0.26}`, `${size - 2},${size * 0.74}`,
-    `${center},${size - 1.5}`, `2,${size * 0.74}`, `2,${size * 0.26}`
+    `${center},1.5`,
+    `${size - 2},${size * 0.26}`,
+    `${size - 2},${size * 0.74}`,
+    `${center},${size - 1.5}`,
+    `2,${size * 0.74}`,
+    `2,${size * 0.26}`
   ].join(" ");
 
   const innerPoints = [
-    `${center},${center - innerRadius}`, `${center + innerRadius * 0.866},${center - innerRadius * 0.5}`,
-    `${center + innerRadius * 0.866},${center + innerRadius * 0.5}`, `${center},${center + innerRadius}`,
-    `${center - innerRadius * 0.866},${center + innerRadius * 0.5}`, `${center - innerRadius * 0.866},${center - innerRadius * 0.5}`
+    `${center},${center - innerRadius}`,
+    `${center + innerRadius * 0.866},${center - innerRadius * 0.5}`,
+    `${center + innerRadius * 0.866},${center + innerRadius * 0.5}`,
+    `${center},${center + innerRadius}`,
+    `${center - innerRadius * 0.866},${center + innerRadius * 0.5}`,
+    `${center - innerRadius * 0.866},${center - innerRadius * 0.5}`
   ].join(" ");
 
-  const glow = large ? 'filter="url(#starGlow)"' : "";
+  const glow = large
+    ? 'filter="url(#starGlow)"'
+    : "";
 
   return `<g transform="translate(${x} ${y})" ${glow}>
-    <polygon points="${outerPoints}" fill="none" stroke="${outerColor}" stroke-width="${Math.max(1.8, size * 0.1)}" stroke-linejoin="round" />
-    <polygon points="${innerPoints}" fill="${innerColor}" />
-    <rect x="${center - centerSize / 2}" y="${center - centerSize / 2}" width="${centerSize}" height="${centerSize}" rx="${centerSize * 0.18}" fill="${centerColor}" />
+    <polygon
+      points="${outerPoints}"
+      fill="none"
+      stroke="${outerColor}"
+      stroke-width="${Math.max(1.8, size * 0.1)}"
+      stroke-linejoin="round"
+    />
+    <polygon
+      points="${innerPoints}"
+      fill="${innerColor}"
+    />
+    <rect
+      x="${center - centerSize / 2}"
+      y="${center - centerSize / 2}"
+      width="${centerSize}"
+      height="${centerSize}"
+      rx="${centerSize * 0.18}"
+      fill="${centerColor}"
+    />
   </g>`;
 }
 
@@ -178,17 +255,66 @@ function robloxLogo(x: number, y: number, size: number): string {
   const holeOffset = (logoSize - holeSize) / 2;
 
   return `<g transform="translate(${x} ${y})">
-    <rect x="0" y="0" width="${tileSize}" height="${tileSize}" rx="${tileSize * 0.28}" fill="#fffaf7" fill-opacity="0.82" filter="url(#softShadow)" />
+    <rect
+      x="0"
+      y="0"
+      width="${tileSize}"
+      height="${tileSize}"
+      rx="${tileSize * 0.28}"
+      fill="#fffaf7"
+      fill-opacity="0.82"
+      filter="url(#softShadow)"
+    />
     <g transform="translate(${logoOffset} ${logoOffset}) rotate(12 ${logoSize / 2} ${logoSize / 2})">
-      <path d="M 0 0 H ${logoSize} V ${logoSize} H 0 Z M ${holeOffset} ${holeOffset} H ${holeOffset + holeSize} V ${holeOffset + holeSize} H ${holeOffset} Z" fill="#242021" fill-rule="evenodd" />
+      <path
+        d="M 0 0 H ${logoSize} V ${logoSize} H 0 Z
+           M ${holeOffset} ${holeOffset}
+           H ${holeOffset + holeSize}
+           V ${holeOffset + holeSize}
+           H ${holeOffset} Z"
+        fill="#242021"
+        fill-rule="evenodd"
+      />
     </g>
   </g>`;
 }
 
+function sparkle(
+  x: number,
+  y: number,
+  size: number,
+  opacity = 0.9
+): string {
+  return `<path
+    d="M ${x} ${y - size}
+       C ${x + size * 0.12} ${y - size * 0.2},
+         ${x + size * 0.2} ${y - size * 0.12},
+         ${x + size} ${y}
+       C ${x + size * 0.2} ${y + size * 0.12},
+         ${x + size * 0.12} ${y + size * 0.2},
+         ${x} ${y + size}
+       C ${x - size * 0.12} ${y + size * 0.2},
+         ${x - size * 0.2} ${y + size * 0.12},
+         ${x - size} ${y}
+       C ${x - size * 0.2} ${y - size * 0.12},
+         ${x - size * 0.12} ${y - size * 0.2},
+         ${x} ${y - size} Z"
+    fill="#fff8ef"
+    opacity="${opacity}"
+    filter="url(#starGlow)"
+  />`;
+}
+
 function copyIcon(x: number, y: number): string {
-  return `<g fill="none" stroke="#615b5c" stroke-width="1.6" stroke-linejoin="round" opacity="0.78">
-    <rect x="${x + 3}" y="${y}" width="12" height="15" rx="3"/>
-    <path d="M ${x + 9} ${y + 4} h 6 a 3 3 0 0 1 3 3 v 9 a 3 3 0 0 1 -3 3 h -9 a 3 3 0 0 1 -3 -3 v -2"/>
+  return `<g
+    fill="none"
+    stroke="#615b5c"
+    stroke-width="1.4"
+    stroke-linejoin="round"
+    opacity="0.78"
+  >
+    <rect x="${x + 3}" y="${y}" width="9" height="11" rx="2"/>
+    <path d="M ${x + 9} ${y + 4} h 4 a 2 2 0 0 1 2 2 v 7 a 2 2 0 0 1 -2 2 h -6 a 2 2 0 0 1 -2 -2 v -2"/>
   </g>`;
 }
 
@@ -204,122 +330,513 @@ export async function renderPurchaseCard(input: {
   const [artwork, avatar, item] = await Promise.all([
     loadArtwork(),
     imageDataUri(input.avatarUrl),
-    itemImageDataUri(input.itemUrl, purchase.assetId, purchase.itemType)
+    itemImageDataUri(
+      input.itemUrl,
+      purchase.assetId,
+      purchase.itemType
+    )
   ]);
 
-  const totalSpentSize = valueFontSize(balance.totalSpent, 28);
-  const totalCashbackSize = valueFontSize(balance.totalCashback, 28);
+  const spentSize = valueFontSize(balance.totalSpent, 54);
+  const cashbackSize = valueFontSize(balance.totalCashback, 54);
+
+  const username = escapeXml(
+    truncate(purchase.robloxUsername, 20)
+  );
+
+  const itemName = escapeXml(
+    truncate(purchase.assetName, 25)
+  );
+
+  const robloxId = escapeXml(
+    String(purchase.robloxUserId)
+  );
+
+  const itemId = escapeXml(
+    String(purchase.assetId)
+  );
+
+  const price = purchase.priceRobux.toLocaleString("id-ID");
+  const spent = balance.totalSpent.toLocaleString("id-ID");
+  const cashback = balance.totalCashback.toLocaleString("id-ID");
 
   const overlay = `
-  <svg width="${CARD_WIDTH}" height="${CARD_HEIGHT}" viewBox="0 0 ${CARD_WIDTH} ${CARD_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="${CARD_WIDTH}"
+    height="${CARD_HEIGHT}"
+    viewBox="0 0 ${CARD_WIDTH} ${CARD_HEIGHT}"
+  >
     <defs>
-      <clipPath id="itemClip">
-        <rect x="52" y="153" width="230" height="240" rx="14"/>
-      </clipPath>
-      <clipPath id="avatarClip">
-        <circle cx="335" cy="210" r="30"/>
-      </clipPath>
-
-      <linearGradient id="mainPanel" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#d9cfcc" stop-opacity="0.85"/>
-        <stop offset="0.5" stop-color="#c4bbba" stop-opacity="0.8"/>
-        <stop offset="1" stop-color="#b8aeac" stop-opacity="0.85"/>
+      <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#e8ddda"/>
+        <stop offset=".52" stop-color="#d5c9c7"/>
+        <stop offset="1" stop-color="#bdb3b2"/>
       </linearGradient>
 
       <linearGradient id="subPanel" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#f5edea" stop-opacity="0.95"/>
-        <stop offset="0.5" stop-color="#e8e0de" stop-opacity="0.9"/>
-        <stop offset="1" stop-color="#d4cbc9" stop-opacity="0.95"/>
+        <stop offset="0" stop-color="#f5ece8" stop-opacity=".97"/>
+        <stop offset="1" stop-color="#e0d6d3" stop-opacity=".96"/>
       </linearGradient>
 
-      <filter id="panelShadow" x="-10%" y="-10%" width="120%" height="120%">
-        <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#1a1516" flood-opacity="0.3"/>
-        <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#ffffff" flood-opacity="0.6"/>
+      <linearGradient id="badge" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#746d6e" stop-opacity=".84"/>
+        <stop offset="1" stop-color="#5c5657" stop-opacity=".91"/>
+      </linearGradient>
+
+      <linearGradient id="pink" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ef9eae"/>
+        <stop offset="1" stop-color="#d96f88"/>
+      </linearGradient>
+
+      <linearGradient id="placeholderFill" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#c9bfbd"/>
+        <stop offset="1" stop-color="#9b9090"/>
+      </linearGradient>
+
+      <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+        <feGaussianBlur stdDeviation="5" result="blur"/>
+        <feMerge>
+          <feMergeNode in="blur"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>
+
+      <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+        <feDropShadow
+          dx="0"
+          dy="5"
+          stdDeviation="8"
+          flood-color="#342c2d"
+          flood-opacity=".28"
+        />
       </filter>
 
       <filter id="softShadow" x="-20%" y="-30%" width="140%" height="160%">
-        <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#463f40" flood-opacity="0.15"/>
+        <feDropShadow
+          dx="0"
+          dy="2"
+          stdDeviation="3"
+          flood-color="#463f40"
+          flood-opacity=".18"
+        />
       </filter>
 
-      <filter id="cashGlow" x="-50%" y="-100%" width="200%" height="300%">
-        <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#fff4f1" flood-opacity="0.85"/>
-        <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#d68394" flood-opacity="0.45"/>
+      <filter id="starGlow" x="-160%" y="-160%" width="420%" height="420%">
+        <feDropShadow
+          dx="0"
+          dy="0"
+          stdDeviation="3"
+          flood-color="#fff7e8"
+          flood-opacity=".95"
+        />
       </filter>
+
+      <clipPath id="itemClip">
+        <rect x="95" y="229" width="377" height="285" rx="24"/>
+      </clipPath>
+
+      <clipPath id="avatarClip">
+        <circle cx="589" cy="283" r="48"/>
+      </clipPath>
+
+      <style>
+        text {
+          font-family: "DejaVu Sans", Arial, sans-serif;
+        }
+
+        .label {
+          fill: #766e6f;
+          font-size: 26px;
+          font-weight: 400;
+        }
+
+        .value {
+          fill: #514a4b;
+          font-weight: 700;
+        }
+
+        .badgeText {
+          fill: #fffaf7;
+          font-weight: 700;
+          letter-spacing: 2px;
+        }
+
+        .detailLabel {
+          fill: #746c6d;
+          font-size: 27px;
+        }
+
+        .detailValue {
+          fill: #514a4b;
+          font-size: 29px;
+          font-weight: 700;
+        }
+
+        .fallbackText {
+          fill: #fffaf7;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: .8px;
+        }
+      </style>
     </defs>
 
-    <style>
-      text { font-family: 'DejaVu Sans', sans-serif; }
-      .label { fill: #7c7475; font-size: 14px; font-weight: 400; }
-      .value { fill: #484243; font-weight: 700; }
-    </style>
+    <!-- Background -->
+    <rect
+      width="${CARD_WIDTH}"
+      height="${CARD_HEIGHT}"
+      fill="#a69d9c"
+      fill-opacity=".18"
+    />
 
-    <!-- Main Container membentang penuh -->
-    <rect x="30" y="130" width="1003" height="360" rx="30" fill="url(#mainPanel)" stroke="#ffffff" stroke-width="3" stroke-opacity="0.6" filter="url(#panelShadow)"/>
-    <rect x="38" y="138" width="987" height="344" rx="24" fill="none" stroke="#ffffff" stroke-opacity="0.4" stroke-width="1.5"/>
+    <!-- Header badges -->
+    <g filter="url(#glow)">
+      <rect
+        x="230" y="42"
+        width="331" height="94"
+        rx="47"
+        fill="url(#badge)"
+        fill-opacity=".52"
+        stroke="#fff8f4"
+        stroke-width="2.5"
+      />
 
-    <!-- Left Column: Item Preview -->
-    <rect x="50" y="150" width="236" height="320" rx="20" fill="url(#subPanel)" stroke="#ffffff" stroke-opacity="0.7" stroke-width="2"/>
-    ${dynamicImage({ uri: item, x: 53, y: 153, width: 230, height: 240, clipId: "itemClip", fallback: "ITEM PREVIEW" })}
-    
-    <rect x="63" y="398" width="210" height="42" rx="21" fill="#6a6364" fill-opacity="0.9" stroke="#fff" stroke-opacity="0.5"/>
-    <text x="168" y="424" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="700" letter-spacing="1.2">NEKOBUXX SHOP</text>
+      <rect
+        x="594" y="42"
+        width="648" height="94"
+        rx="47"
+        fill="url(#badge)"
+        fill-opacity=".52"
+        stroke="#fff8f4"
+        stroke-width="2.5"
+      />
 
-    <!-- Right Column: Top Row (Buyer Info) -->
-    <rect x="300" y="150" width="713" height="100" rx="20" fill="url(#subPanel)" stroke="#ffffff" stroke-opacity="0.7" stroke-width="2"/>
-    
-    <!-- User Avatar & Username -->
-    <circle cx="335" cy="200" r="34" fill="none" stroke="#fff" stroke-width="3" filter="url(#softShadow)"/>
-    ${dynamicImage({ uri: avatar, x: 305, y: 170, width: 60, height: 60, clipId: "avatarClip", fallback: "USER" })}
-    <text x="385" y="185" class="label">Dibeli oleh</text>
-    <text x="385" y="215" class="value" font-size="22">${escapeXml(truncate(purchase.robloxUsername, 17))}</text>
-    ${copyIcon(610, 190)}
+      <rect
+        x="1274" y="42"
+        width="331" height="94"
+        rx="47"
+        fill="url(#badge)"
+        fill-opacity=".52"
+        stroke="#fff8f4"
+        stroke-width="2.5"
+      />
+    </g>
 
-    <line x1="680" y1="165" x2="680" y2="235" stroke="#999192" stroke-opacity="0.3" stroke-width="2"/>
+    <!-- Trusted icon -->
+    <path
+      d="M277 68 L306 59 L328 69 L325 95 Q315 112 303 119 Q284 106 281 92 Z"
+      fill="#fffaf7"
+      opacity=".95"
+    />
 
-    <!-- Roblox ID Info -->
-    ${robloxLogo(710, 172, 54)}
-    <text x="785" y="185" class="label">Roblox ID</text>
-    <text x="785" y="215" class="value" font-size="22">${purchase.robloxUserId}</text>
-    ${copyIcon(960, 190)}
+    <path
+      d="M291 87 L301 97 L316 78"
+      fill="none"
+      stroke="#756d6e"
+      stroke-width="7"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
 
-    <!-- Right Column: Bottom Row (Details & Summary) -->
-    <!-- Item Details -->
-    <rect x="300" y="265" width="455" height="205" rx="20" fill="url(#subPanel)" stroke="#ffffff" stroke-opacity="0.7" stroke-width="2"/>
-    
-    ${robuxIcon(320, 290, 28)}
-    <text x="365" y="310" class="label">Nama Item</text>
-    <text x="495" y="310" class="label">:</text>
-    <text x="515" y="310" class="value" font-size="18">${escapeXml(truncate(purchase.assetName, 18))}</text>
-    ${copyIcon(710, 292)}
+    <text
+      x="354"
+      y="100"
+      class="badgeText"
+      font-size="29"
+    >TRUSTED</text>
 
-    ${robuxIcon(320, 345, 28)}
-    <text x="365" y="365" class="label">Item ID</text>
-    <text x="495" y="365" class="label">:</text>
-    <text x="515" y="365" class="value" font-size="18">${purchase.assetId}</text>
-    ${copyIcon(710, 347)}
+    <text
+      x="664"
+      y="103"
+      class="badgeText"
+      font-size="42"
+      letter-spacing="8"
+    >CASHBACK</text>
 
-    ${robuxIcon(320, 400, 28)}
-    <text x="365" y="420" class="label">Harga Item</text>
-    <text x="495" y="420" class="label">:</text>
-    <text x="515" y="420" class="value" font-size="18">R$ ${purchase.priceRobux.toLocaleString("id-ID")}</text>
-    ${copyIcon(710, 402)}
+    <text
+      x="1010"
+      y="116"
+      class="badgeText"
+      font-size="75"
+    >20%</text>
 
-    <!-- Summary Box -->
-    <rect x="770" y="265" width="243" height="205" rx="20" fill="url(#subPanel)" stroke="#ffffff" stroke-opacity="0.7" stroke-width="2"/>
-    
-    <text x="891" y="300" class="label" text-anchor="middle">Total Belanja</text>
-    ${robuxIcon(790, 312, 38)}
-    <text x="840" y="342" class="value" font-size="${totalSpentSize}">R$ ${balance.totalSpent.toLocaleString("id-ID")}</text>
+    <!-- Fast icon -->
+    <path
+      d="M1365 59 L1342 89 L1360 89 L1348 119 L1385 78 L1366 78 Z"
+      fill="#fffaf7"
+    />
 
-    <line x1="795" y1="365" x2="985" y2="365" stroke="#999192" stroke-opacity="0.3" stroke-width="2"/>
+    <text
+      x="1433"
+      y="100"
+      class="badgeText"
+      font-size="29"
+    >FAST</text>
 
-    <text x="891" y="395" class="label" fill="#c47a8b" text-anchor="middle">Total Cashback</text>
-    ${robuxIcon(790, 408, 38, true)}
-    <text x="840" y="438" fill="#e07089" font-size="${totalCashbackSize}" font-weight="700" filter="url(#cashGlow)">R$ ${balance.totalCashback.toLocaleString("id-ID")}</text>
+    <text
+      x="920"
+      y="176"
+      text-anchor="middle"
+      fill="#fffaf7"
+      font-size="23"
+      letter-spacing="5"
+    >YOUR ROBLOX SHOPPING PARTNER ♡</text>
+
+    <!-- Main outer frame -->
+    <rect
+      x="45"
+      y="175"
+      width="1745"
+      height="493"
+      rx="48"
+      fill="url(#panel)"
+      stroke="#fffaf7"
+      stroke-width="4"
+      filter="url(#shadow)"
+    />
+
+    <rect
+      x="61"
+      y="190"
+      width="1713"
+      height="463"
+      rx="38"
+      fill="none"
+      stroke="#fff"
+      stroke-opacity=".62"
+      stroke-width="2"
+    />
+
+    <path
+      d="M78 203 H1752"
+      stroke="#fffaf7"
+      stroke-opacity=".55"
+      stroke-width="2"
+    />
+
+    <!-- Item preview card -->
+    <rect
+      x="78"
+      y="212"
+      width="411"
+      height="424"
+      rx="34"
+      fill="url(#subPanel)"
+      stroke="#fffaf7"
+      stroke-opacity=".9"
+      stroke-width="2"
+    />
+
+    ${dynamicImage({
+      uri: item,
+      x: 95,
+      y: 229,
+      width: 377,
+      height: 285,
+      clipId: "itemClip",
+      fallback: "ITEM PREVIEW"
+    })}
+
+    <rect
+      x="95"
+      y="229"
+      width="377"
+      height="285"
+      rx="24"
+      fill="none"
+      stroke="#fff"
+      stroke-opacity=".8"
+      stroke-width="2"
+    />
+
+    <rect
+      x="96"
+      y="535"
+      width="375"
+      height="82"
+      rx="41"
+      fill="#70696a"
+      stroke="#fffaf7"
+      stroke-opacity=".6"
+      stroke-width="2"
+    />
+
+    <text
+      x="283.5"
+      y="587"
+      text-anchor="middle"
+      fill="#fffaf7"
+      font-size="28"
+      font-weight="700"
+      letter-spacing="1.5"
+    >NEKOBUXX SHOP</text>
+
+    <!-- Buyer information -->
+    <rect
+      x="508"
+      y="212"
+      width="1247"
+      height="143"
+      rx="34"
+      fill="url(#subPanel)"
+      stroke="#fffaf7"
+      stroke-opacity=".9"
+      stroke-width="2"
+    />
+
+    ${dynamicImage({
+      uri: avatar,
+      x: 541,
+      y: 235,
+      width: 96,
+      height: 96,
+      clipId: "avatarClip",
+      fallback: "USER"
+    })}
+
+    <circle
+      cx="589"
+      cy="283"
+      r="49"
+      fill="none"
+      stroke="#fffaf7"
+      stroke-width="3"
+    />
+
+    <text x="679" y="267" class="label">Dibeli oleh</text>
+
+    <text
+      x="679"
+      y="318"
+      class="value"
+      font-size="40"
+    >${username}</text>
+
+    ${copyIcon(1070, 277)}
+
+    <line
+      x1="1175"
+      y1="232"
+      x2="1175"
+      y2="335"
+      stroke="#8d8384"
+      stroke-opacity=".28"
+      stroke-width="2"
+    />
+
+    ${robloxLogo(1212, 231, 106)}
+
+    <text x="1365" y="267" class="label">Roblox ID</text>
+
+    <text
+      x="1365"
+      y="318"
+      class="value"
+      font-size="38"
+    >${robloxId}</text>
+
+    ${copyIcon(1671, 277)}
+
+    <!-- Item details -->
+    <rect
+      x="508"
+      y="372"
+      width="815"
+      height="264"
+      rx="34"
+      fill="url(#subPanel)"
+      stroke="#fffaf7"
+      stroke-opacity=".9"
+      stroke-width="2"
+    />
+
+    <path
+      d="M535 459 H1295 M535 548 H1295"
+      stroke="#8e8586"
+      stroke-opacity=".18"
+      stroke-width="2"
+    />
+
+    ${robuxIcon(550, 397, 42)}
+
+    <text x="622" y="429" class="detailLabel">Nama Item</text>
+    <text x="817" y="429" class="detailLabel">:</text>
+    <text x="858" y="429" class="detailValue">${itemName}</text>
+
+    ${copyIcon(1247, 407)}
+
+    ${robuxIcon(550, 485, 42)}
+
+    <text x="622" y="517" class="detailLabel">Item ID</text>
+    <text x="817" y="517" class="detailLabel">:</text>
+    <text x="858" y="517" class="detailValue">${itemId}</text>
+
+    ${copyIcon(1247, 495)}
+
+    ${robuxIcon(550, 574, 42)}
+
+    <text x="622" y="606" class="detailLabel">Harga Item</text>
+    <text x="817" y="606" class="detailLabel">:</text>
+    <text x="858" y="606" class="detailValue">R$ ${price}</text>
+
+    ${copyIcon(1247, 584)}
+
+    <!-- Spending and cashback summary -->
+    <rect
+      x="1339"
+      y="372"
+      width="416"
+      height="264"
+      rx="34"
+      fill="url(#subPanel)"
+      stroke="#fffaf7"
+      stroke-opacity=".9"
+      stroke-width="2"
+    />
+
+    <text x="1468" y="418" class="label">Total Belanja</text>
+
+    ${robuxIcon(1378, 431, 57)}
+
+    <text
+      x="1468"
+      y="486"
+      class="value"
+      font-size="${spentSize}"
+    >R$ ${spent}</text>
+
+    <line
+      x1="1368"
+      y1="510"
+      x2="1727"
+      y2="510"
+      stroke="#81797a"
+      stroke-opacity=".3"
+      stroke-width="2"
+    />
+
+    <text x="1468" y="552" class="label">Total Cashback</text>
+
+    ${robuxIcon(1378, 565, 57, true)}
+
+    <text
+      x="1468"
+      y="620"
+      fill="url(#pink)"
+      font-size="${cashbackSize}"
+      font-weight="700"
+    >R$ ${cashback}</text>
   </svg>`;
 
   return sharp(artwork)
-    .composite([{ input: Buffer.from(overlay), top: 0, left: 0 }])
+    .composite([
+      {
+        input: Buffer.from(overlay),
+        top: 0,
+        left: 0
+      }
+    ])
     .png()
     .toBuffer();
 }
