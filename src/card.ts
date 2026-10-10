@@ -738,10 +738,14 @@ export async function renderPurchaseCard(input: {
     <text x="1433" y="100" class="badgeText" font-size="29">FAST</text>
     <text x="920" y="176" text-anchor="middle" fill="#fffaf7" font-size="23" letter-spacing="5">YOUR ROBLOX SHOPPING PARTNER ♡</text>
 
-    <!-- Bingkai luar utama -->
-    <rect x="45" y="175" width="1745" height="493" rx="48" fill="url(#panel)" stroke="#fffaf7" stroke-width="4" filter="url(#shadow)"/>
-    <rect x="61" y="190" width="1713" height="463" rx="38" fill="none" stroke="#fff" stroke-opacity=".62" stroke-width="2"/>
-    <path d="M78 203 H1752" stroke="#fffaf7" stroke-opacity=".55" stroke-width="2"/>
+    <!-- Bingkai luar utama: isi panel terpisah dari garis tepi agar tagline tidak tertimpa garis lurus. -->
+    <rect x="45" y="175" width="1745" height="493" rx="48" fill="url(#panel)" filter="url(#shadow)"/>
+    <!-- Garis tepi atas dibuat terputus di tengah, mengikuti bentuk referensi asli. -->
+    <path d="M92 175 H588 M1222 175 H1742 Q1790 175 1790 223 V620 Q1790 668 1742 668 H93 Q45 668 45 620 V223 Q45 175 93 175"
+      fill="none" stroke="#fffaf7" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+    <!-- Bingkai bagian dalam juga mengikuti sudut membulat; bagian atas tidak melewati tagline. -->
+    <path d="M100 190 H575 M1235 190 H1736 Q1774 190 1774 228 V615 Q1774 652 1736 652 H99 Q61 652 61 615 V228 Q61 190 99 190"
+      fill="none" stroke="#fff" stroke-opacity=".62" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 
     <!-- Kartu item di sisi kiri -->
     <rect x="78" y="212" width="411" height="424" rx="34" fill="url(#subPanel)" stroke="#fffaf7" stroke-opacity=".9" stroke-width="2"/>
