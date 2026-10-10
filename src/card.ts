@@ -736,7 +736,11 @@ export async function renderPurchaseCard(input: {
     <text x="1010" y="116" class="badgeText" font-size="75">20%</text>
     <path d="M1365 59 L1342 89 L1360 89 L1348 119 L1385 78 L1366 78 Z" fill="#fffaf7"/>
     <text x="1433" y="100" class="badgeText" font-size="29">FAST</text>
-    <text x="920" y="176" text-anchor="middle" fill="#fffaf7" font-size="23" letter-spacing="5">YOUR ROBLOX SHOPPING PARTNER ♡</text>
+    <!-- Tagline dipusatkan secara visual di tengah header, dengan latar kecil agar garis bingkai tidak menembus huruf. -->
+    <rect x="600" y="145" width="640" height="43" rx="8" fill="#a79e9d"/>
+    <text x="920" y="169" text-anchor="middle" fill="#fffaf7" font-size="22" letter-spacing="4.2">YOUR ROBLOX SHOPPING PARTNER ♡</text>
+    <!-- Underline halus di bawah tagline; garis bingkai kiri dan kanan tetap terpisah. -->
+    <path d="M700 185 H1140" fill="none" stroke="#fffaf7" stroke-opacity=".72" stroke-width="1.5" stroke-linecap="round"/>
 
     <!-- Bingkai luar utama: isi panel terpisah dari garis tepi agar tagline tidak tertimpa garis lurus. -->
     <rect x="45" y="175" width="1745" height="493" rx="48" fill="url(#panel)" filter="url(#shadow)"/>
