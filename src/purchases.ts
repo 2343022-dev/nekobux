@@ -1,3 +1,4 @@
+
 import {
   ActionRowBuilder,
   AttachmentBuilder,
@@ -5,8 +6,10 @@ import {
   ButtonStyle,
   Client
 } from "discord.js";
+
 import { renderPurchaseCard } from "./card.js";
 import { config } from "./config.js";
+
 import {
   claimPurchasesForDiscordDelivery,
   getBalance,
@@ -17,14 +20,23 @@ import {
   savePurchaseMessage,
   type PurchaseDeliveryRecord
 } from "./db.js";
-import { getAvatarThumbnail, resolveItemThumbnail } from "./roblox.js";
+
+import {
+  getAvatarThumbnail,
+  resolveItemThumbnail
+} from "./roblox.js";
+
 import type {
   BalanceSummary,
   PurchaseInput,
   PurchaseItemType,
   PurchaseRecord
 } from "./types.js";
-import { calculateCashback, errorMessage } from "./utils.js";
+
+import {
+  calculateCashback,
+  errorMessage
+} from "./utils.js";
 
 export interface RecordPurchaseResult {
   duplicate: boolean;
@@ -37,23 +49,50 @@ export async function recordPurchase(
   client: Client,
   input: PurchaseInput
 ): Promise<RecordPurchaseResult> {
-  if (!Number.isInteger(input.priceRobux) || input.priceRobux < config.minimumItemPrice) {
-    throw new Error(`Harga item minimal ${config.minimumItemPrice} Robux.`);
+  if (
+    !Number.isInteger(input.priceRobux) ||
+    input.priceRobux < config.minimumItemPrice
+  ) {
+    throw new Error(
+      `Harga item minimal ${config.minimumItemPrice} Robux.`
+    );
   }
 
   const purchase = await insertPurchase(input);
-  if (!purchase) return { duplicate: true, purchase: null };
+
+  if (!purchase) {
+    return {
+      duplicate: true,
+      purchase: null
+    };
+  }
 
   await refreshEligibilityForUser(input.robloxUserId);
-  void processPurchaseCardQueue(client, purchase.id).catch((error) =>
-    console.error(`[purchase-delivery] ${purchase.eventId}: ${errorMessage(error)}`)
+
+  void processPurchaseCardQueue(client, purchase.id).catch(
+    (error) => {
+      console.error(
+        `[purchase-delivery] ${purchase.eventId}: ${errorMessage(error)}`
+      );
+    }
   );
-  return { duplicate: false, purchase };
+
+  return {
+    duplicate: false,
+    purchase
+  };
 }
 
 function retryDelaySeconds(attempt: number): number {
-  const base = Math.max(5, Math.floor(config.purchaseCardRetrySeconds));
-  return Math.min(30 * 60, base * 2 ** Math.min(Math.max(attempt - 1, 0), 6));
+  const base = Math.max(
+    5,
+    Math.floor(config.purchaseCardRetrySeconds)
+  );
+
+  return Math.min(
+    30 * 60,
+    base * 2 ** Math.min(Math.max(attempt - 1, 0), 6)
+  );
 }
 
 async function deliverPurchaseCard(
@@ -64,11 +103,13 @@ async function deliverPurchaseCard(
     await publishPurchase(client, purchase);
   } catch (error) {
     const message = errorMessage(error);
+
     await markPurchaseDiscordDeliveryFailed(
       purchase.id,
       message,
       retryDelaySeconds(purchase.deliveryAttempts)
     );
+
     console.error(
       `[purchase-card-retry] ${purchase.eventId} attempt ${purchase.deliveryAttempts}: ${message}`
     );
@@ -79,15 +120,23 @@ export async function processPurchaseCardQueue(
   client: Client,
   purchaseId?: number
 ): Promise<void> {
-  if (purchaseDeliveryRunning) return;
+  if (purchaseDeliveryRunning) {
+    return;
+  }
+
   purchaseDeliveryRunning = true;
+
   try {
     const purchases = await claimPurchasesForDiscordDelivery({
       limit: purchaseId
         ? 1
-        : Math.max(1, Math.floor(config.purchaseCardRetryBatchSize)),
+        : Math.max(
+            1,
+            Math.floor(config.purchaseCardRetryBatchSize)
+          ),
       purchaseId
     });
+
     for (const purchase of purchases) {
       await deliverPurchaseCard(client, purchase);
     }
@@ -96,16 +145,25 @@ export async function processPurchaseCardQueue(
   }
 }
 
-export function startPurchaseCardRetryScheduler(client: Client): NodeJS.Timeout {
+export function startPurchaseCardRetryScheduler(
+  client: Client
+): NodeJS.Timeout {
   const run = (): void => {
-    void processPurchaseCardQueue(client).catch((error) =>
-      console.error(`[purchase-card-scheduler] ${errorMessage(error)}`)
-    );
+    void processPurchaseCardQueue(client).catch((error) => {
+      console.error(
+        `[purchase-card-scheduler] ${errorMessage(error)}`
+      );
+    });
   };
+
   run();
+
   return setInterval(
     run,
-    Math.max(5, Math.floor(config.purchaseCardRetrySeconds)) * 1000
+    Math.max(
+      5,
+      Math.floor(config.purchaseCardRetrySeconds)
+    ) * 1000
   );
 }
 
@@ -120,10 +178,14 @@ export async function sendPurchaseCardPreview(
     priceRobux: number;
   }
 ): Promise<string> {
-  const channel = await client.channels.fetch(config.purchaseLogChannelId);
+  const channel = await client.channels.fetch(
+    config.purchaseLogChannelId
+  );
 
   if (!channel?.isSendable()) {
-    throw new Error("Channel log pembelian tidak dapat dikirimi pesan.");
+    throw new Error(
+      "Channel log pembelian tidak dapat dikirimi pesan."
+    );
   }
 
   const cashbackRobux = calculateCashback(
@@ -159,7 +221,10 @@ export async function sendPurchaseCardPreview(
 
   const [avatarUrl, itemThumbnail] = await Promise.all([
     getAvatarThumbnail(input.robloxUserId).catch(() => null),
-    resolveItemThumbnail(input.assetId, input.itemType).catch(() => ({
+    resolveItemThumbnail(
+      input.assetId,
+      input.itemType
+    ).catch(() => ({
       imageUrl: null,
       itemType: input.itemType
     }))
@@ -207,20 +272,42 @@ export async function sendPurchaseCardPreview(
       })
     ],
     components: [row],
-    allowedMentions: { parse: [] }
+    allowedMentions: {
+      parse: []
+    }
   });
 
   return message.url;
 }
-async function publishPurchase(client: Client, purchase: PurchaseRecord): Promise<void> {
-  const channel = await client.channels.fetch(config.purchaseLogChannelId);
-  if (!channel?.isSendable()) throw new Error("Channel log pembelian tidak dapat dikirimi pesan.");
 
-  const link = await getLinkByRoblox(purchase.robloxUserId);
-  const balance = await getBalance(purchase.robloxUserId);
+async function publishPurchase(
+  client: Client,
+  purchase: PurchaseRecord
+): Promise<void> {
+  const channel = await client.channels.fetch(
+    config.purchaseLogChannelId
+  );
+
+  if (!channel?.isSendable()) {
+    throw new Error(
+      "Channel log pembelian tidak dapat dikirimi pesan."
+    );
+  }
+
+  const link = await getLinkByRoblox(
+    purchase.robloxUserId
+  );
+
+  const balance = await getBalance(
+    purchase.robloxUserId
+  );
+
   const [avatarUrl, itemThumbnail] = await Promise.all([
     getAvatarThumbnail(purchase.robloxUserId).catch(() => null),
-    resolveItemThumbnail(purchase.assetId, purchase.itemType).catch(() => ({
+    resolveItemThumbnail(
+      purchase.assetId,
+      purchase.itemType
+    ).catch(() => ({
       imageUrl: null,
       itemType: purchase.itemType
     }))
@@ -238,12 +325,34 @@ async function publishPurchase(client: Client, purchase: PurchaseRecord): Promis
     avatarUrl,
     itemUrl: itemThumbnail.imageUrl
   });
-  const mention = link ? `<@${link.discordUserId}>` : `**@${purchase.robloxUsername}**`;
+
+  /*
+   * PERBAIKAN MENTION
+   *
+   * Discord mention harus menggunakan Discord user ID,
+   * bukan username Roblox maupun username Discord.
+   */
+
+  const rawDiscordUserId = link?.discordUserId;
+
+  const discordUserId =
+    typeof rawDiscordUserId === "string"
+      ? rawDiscordUserId.trim()
+      : "";
+
+  const validDiscordUserId =
+    /^\d{17,20}$/.test(discordUserId);
+
+  const mention = validDiscordUserId
+    ? `<@${discordUserId}>`
+    : `**@${purchase.robloxUsername}**`;
+
   const content = [
     "## 🛒 PEMBELIAN BARU DARI NEKOBUXX!",
     `${mention} membeli **${purchase.assetName}** seharga **${purchase.priceRobux} Robux**`,
     `dan mendapatkan cashback **+${purchase.cashbackRobux} Robux** 🌿✨`
   ].join("\n");
+
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setLabel(
@@ -258,11 +367,37 @@ async function publishPurchase(client: Client, purchase: PurchaseRecord): Promis
           : `https://www.roblox.com/catalog/${purchase.assetId}`
       )
   );
+
+  console.log("[purchase-mention]", {
+    purchaseId: purchase.id,
+    robloxUserId: purchase.robloxUserId,
+    linkFound: Boolean(link),
+    discordUserIdValid: validDiscordUserId
+  });
+
   const message = await channel.send({
     content,
-    files: [new AttachmentBuilder(card, { name: `purchase-${purchase.id}.png` })],
+    files: [
+      new AttachmentBuilder(card, {
+        name: `purchase-${purchase.id}.png`
+      })
+    ],
     components: [row],
-    allowedMentions: link ? { users: [link.discordUserId] } : { parse: [] }
+
+    // Hanya izinkan mention ke akun Discord yang terhubung.
+    allowedMentions: validDiscordUserId
+      ? {
+          parse: [],
+          users: [discordUserId]
+        }
+      : {
+          parse: []
+        }
   });
-  await savePurchaseMessage(purchase.id, message.channelId, message.id);
+
+  await savePurchaseMessage(
+    purchase.id,
+    message.channelId,
+    message.id
+  );
 }
