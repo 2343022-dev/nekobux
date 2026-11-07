@@ -261,9 +261,7 @@ export async function sendPurchaseCardPreview(
 
   const message = await channel.send({
     content: [
-      "## 🧪 PREVIEW CARD PEMBELIAN",
-      "**Ini hanya pengujian admin—tidak ada transaksi atau saldo yang ditambahkan.**",
-      `**@${input.robloxUsername}** membeli **${input.assetName}** seharga **${input.priceRobux} Robux**`,
+      `**@${input.robloxUsername}** membeli **${input.assetName}**`,
       `Preview cashback: **+${cashbackRobux} Robux**`
     ].join("\n"),
     files: [
@@ -349,8 +347,7 @@ async function publishPurchase(
 
   const content = [
     "## 🛒 PEMBELIAN BARU DARI NEKOBUXX!",
-    `${mention} membeli **${purchase.assetName}** seharga **${purchase.priceRobux} Robux**`,
-    `dan mendapatkan cashback **+${purchase.cashbackRobux} Robux** 🌿✨`
+    `${mention} membeli **${purchase.assetName}**`
   ].join("\n");
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
